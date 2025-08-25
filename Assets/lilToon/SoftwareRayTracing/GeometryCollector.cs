@@ -13,6 +13,7 @@ namespace lilToon.RayTracing
             public Vector3[] vertices;
             public Vector3[] normals;
             public Vector2[] uvs;
+            public Vector4[] tangents;
             public int[] indices;
             public LilToonParameters material;
             public Matrix4x4 localToWorld;
@@ -36,6 +37,7 @@ namespace lilToon.RayTracing
                     vertices = mesh.vertices,
                     normals = mesh.normals,
                     uvs = mesh.uv,
+                    tangents = mesh.tangents,
                     indices = mesh.triangles,
                     material = mat,
                     localToWorld = mf.transform.localToWorldMatrix
@@ -51,6 +53,7 @@ namespace lilToon.RayTracing
                     vertices = mesh.vertices,
                     normals = mesh.normals,
                     uvs = mesh.uv,
+                    tangents = mesh.tangents,
                     indices = mesh.triangles,
                     material = mat,
                     localToWorld = smr.transform.localToWorldMatrix

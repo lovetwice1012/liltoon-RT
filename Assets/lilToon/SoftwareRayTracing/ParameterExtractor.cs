@@ -11,6 +11,8 @@ namespace lilToon.RayTracing
         public Color color;
         public float metallic;
         public float roughness;
+        public Texture2D albedoMap;
+        public Texture2D normalMap;
     }
 
     public static class ParameterExtractor
@@ -28,6 +30,8 @@ namespace lilToon.RayTracing
             param.metallic = material.HasProperty("_Metallic") ? material.GetFloat("_Metallic") : 0f;
             // lilToon uses smoothness; convert to roughness for ray tracing.
             param.roughness = material.HasProperty("_Smoothness") ? 1f - material.GetFloat("_Smoothness") : 1f;
+            param.albedoMap = material.HasProperty("_MainTex") ? material.GetTexture("_MainTex") as Texture2D : null;
+            param.normalMap = material.HasProperty("_BumpMap") ? material.GetTexture("_BumpMap") as Texture2D : null;
             return param;
         }
     }
