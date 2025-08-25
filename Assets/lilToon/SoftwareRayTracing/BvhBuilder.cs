@@ -8,6 +8,7 @@ namespace lilToon.RayTracing
     /// </summary>
     public static class BvhBuilder
     {
+        const int LeafThreshold = 4;
         public struct Triangle
         {
             public Vector3 v0;
@@ -56,23 +57,71 @@ namespace lilToon.RayTracing
             int nodeIndex = nodes.Count;
             nodes.Add(node);
 
-            if (count <= 2)
+            if (count <= LeafThreshold)
             {
                 return nodeIndex;
             }
 
-            Vector3 size = bounds.size;
-            int axis = 0;
-            if (size.y > size.x && size.y > size.z) axis = 1;
-            else if (size.z > size.x && size.z > size.y) axis = 2;
+            float bestCost = float.MaxValue;
+            int bestAxis = -1;
+            int bestSplit = -1;
 
-            triangles.Sort(start, count, new TriangleComparer(axis));
+            for (int axis = 0; axis < 3; ++axis)
+            {
+                triangles.Sort(start, count, new TriangleComparer(axis));
 
-            int mid = start + count / 2;
-            node.left = BuildRecursive(triangles, start, mid - start, nodes);
-            node.right = BuildRecursive(triangles, mid, start + count - mid, nodes);
+                var leftBounds = new Bounds[count];
+                var rightBounds = new Bounds[count];
+
+                Bounds b = new Bounds(triangles[start].v0, Vector3.zero);
+                for (int i = 0; i < count; ++i)
+                {
+                    int idx = start + i;
+                    b.Encapsulate(triangles[idx].v0);
+                    b.Encapsulate(triangles[idx].v1);
+                    b.Encapsulate(triangles[idx].v2);
+                    leftBounds[i] = b;
+                }
+
+                b = new Bounds(triangles[start + count - 1].v0, Vector3.zero);
+                for (int i = count - 1; i >= 0; --i)
+                {
+                    int idx = start + i;
+                    b.Encapsulate(triangles[idx].v0);
+                    b.Encapsulate(triangles[idx].v1);
+                    b.Encapsulate(triangles[idx].v2);
+                    rightBounds[i] = b;
+                }
+
+                for (int i = 1; i < count; ++i)
+                {
+                    float cost = i * SurfaceArea(leftBounds[i - 1]) + (count - i) * SurfaceArea(rightBounds[i]);
+                    if (cost < bestCost)
+                    {
+                        bestCost = cost;
+                        bestAxis = axis;
+                        bestSplit = i;
+                    }
+                }
+            }
+
+            if (bestAxis == -1)
+            {
+                return nodeIndex;
+            }
+
+            triangles.Sort(start, count, new TriangleComparer(bestAxis));
+            int mid = start + bestSplit;
+            node.left = BuildRecursive(triangles, start, bestSplit, nodes);
+            node.right = BuildRecursive(triangles, mid, count - bestSplit, nodes);
             nodes[nodeIndex] = node;
             return nodeIndex;
+        }
+
+        static float SurfaceArea(Bounds b)
+        {
+            Vector3 s = b.size;
+            return 2f * (s.x * s.y + s.y * s.z + s.z * s.x);
         }
 
         class TriangleComparer : IComparer<Triangle>
@@ -92,11 +141,12 @@ namespace lilToon.RayTracing
             var tris = new List<Triangle>();
             var verts = mesh.vertices;
             var indices = mesh.indices;
+            Matrix4x4 m = mesh.localToWorld;
             for (int i = 0; i < indices.Length; i += 3)
             {
-                Vector3 v0 = verts[indices[i]];
-                Vector3 v1 = verts[indices[i + 1]];
-                Vector3 v2 = verts[indices[i + 2]];
+                Vector3 v0 = m.MultiplyPoint3x4(verts[indices[i]]);
+                Vector3 v1 = m.MultiplyPoint3x4(verts[indices[i + 1]]);
+                Vector3 v2 = m.MultiplyPoint3x4(verts[indices[i + 2]]);
                 Triangle t = new Triangle
                 {
                     v0 = v0,
