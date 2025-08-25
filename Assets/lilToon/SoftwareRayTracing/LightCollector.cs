@@ -15,7 +15,7 @@ namespace lilToon.RayTracing
             public Vector3 up;
             public Vector2 size;
             public float angle;
-            public Color color;
+            public SpectralColor spectrum;
             public float intensity;
             public LightType type;
         }
@@ -37,7 +37,7 @@ namespace lilToon.RayTracing
                     up = light.transform.up,
                     size = light.areaSize,
                     angle = light.spotAngle,
-                    color = light.color,
+                    spectrum = SpectralColor.FromRGB(light.color),
                     intensity = light.intensity,
                     type = light.type
                 });

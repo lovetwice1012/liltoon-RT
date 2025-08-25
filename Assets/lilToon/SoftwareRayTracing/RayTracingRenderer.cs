@@ -23,7 +23,7 @@ namespace lilToon.RayTracing
        
 
         Texture2D _output;
-        Color[] _accumulation;
+        SpectralColor[] _accumulation;
         int _frameCount;
         List<BvhBuilder.BvhNode> _nodes;
         List<BvhBuilder.Triangle> _triangles;
@@ -48,7 +48,7 @@ namespace lilToon.RayTracing
                 _output.wrapMode = TextureWrapMode.Clamp;
                 Shader.SetGlobalTexture("_lilSoftwareRayTex", _output);
 
-                _accumulation = new Color[width * height];
+                _accumulation = new SpectralColor[width * height];
                 _frameCount = 0;
             }
         }
@@ -73,7 +73,7 @@ namespace lilToon.RayTracing
 
             if (_accumulation == null || _accumulation.Length != width * height)
             {
-                _accumulation = new Color[width * height];
+                _accumulation = new SpectralColor[width * height];
                 _frameCount = 0;
             }
 
@@ -84,7 +84,7 @@ namespace lilToon.RayTracing
                 for (int x = 0; x < width; ++x)
                 {
                     var rng = new Random(x * 73856093 ^ y * 19349663 ^ frameIndex);
-                    Color col = Color.black;
+                    SpectralColor col = SpectralColor.Black;
                     for (int s = 0; s < samplesPerPixel; ++s)
                     {
                         var offset = new Vector2((float)rng.NextDouble(), (float)rng.NextDouble());
@@ -94,7 +94,7 @@ namespace lilToon.RayTracing
                     col /= samplesPerPixel;
                     int idx = y * width + x;
                     _accumulation[idx] += col;
-                    colors[idx] = _accumulation[idx] / frameIndex;
+                    colors[idx] = (_accumulation[idx] / frameIndex).ToRGB();
                 }
             });
             _frameCount = frameIndex;
