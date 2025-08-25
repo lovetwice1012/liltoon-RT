@@ -37,25 +37,33 @@ namespace lilToon.RayTracing
 
                 var verts = mesh.vertices;
                 var norms = mesh.normals;
+                Vector4[] tans = mesh.tangents;
+                Vector2[] uvs = mesh.uv;
+
+                // Avoid mutating shared mesh assets by operating on a temporary copy
+                Mesh temp = null;
                 if(norms == null || norms.Length != verts.Length)
                 {
-                    mesh.RecalculateNormals();
-                    norms = mesh.normals;
+                    temp = Object.Instantiate(mesh);
+                    temp.RecalculateNormals();
+                    norms = temp.normals;
                 }
 
-                var uvs = mesh.uv;
                 if(uvs == null || uvs.Length != verts.Length)
                     uvs = new Vector2[verts.Length];
 
-                var tans = mesh.tangents;
                 if(tans == null || tans.Length != verts.Length)
                 {
+                    if(temp == null) temp = Object.Instantiate(mesh);
                     if(uvs.Length > 0)
-                        mesh.RecalculateTangents();
-                    tans = mesh.tangents;
+                        temp.RecalculateTangents();
+                    tans = temp.tangents;
                     if(tans == null || tans.Length != verts.Length)
                         tans = new Vector4[verts.Length];
                 }
+
+                if(temp != null)
+                    Object.Destroy(temp);
 
                 result.Add(new MeshData{
                     vertices = verts,

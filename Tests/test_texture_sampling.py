@@ -1,6 +1,6 @@
 import math
+import pytest
 
-# simple bilinear sampler mirroring C# implementation
 
 def sample_color(pixels, width, height, u, v):
     u = u % 1.0
@@ -14,7 +14,7 @@ def sample_color(pixels, width, height, u, v):
     tx = x - x0
     ty = y - y0
     def get(ix, iy):
-        r,g,b = pixels[iy*width + ix]
+        r, g, b = pixels[iy * width + ix]
         return (r, g, b)
     c00 = get(x0, y0)
     c10 = get(x1, y0)
@@ -24,12 +24,13 @@ def sample_color(pixels, width, height, u, v):
     c1 = tuple(c01[i]*(1-tx) + c11[i]*tx for i in range(3))
     return tuple(c0[i]*(1-ty) + c1[i]*ty for i in range(3))
 
-if __name__ == "__main__":
+
+def test_sample_color_center():
     pixels = [
         (0.0, 0.0, 0.0),
         (1.0, 0.0, 0.0),
         (0.0, 1.0, 0.0),
-        (0.0, 0.0, 1.0)
+        (0.0, 0.0, 1.0),
     ]  # 2x2 texture
     color = sample_color(pixels, 2, 2, 0.5, 0.5)
-    print("Sampled color at center:", color)
+    assert color == pytest.approx((0.25, 0.25, 0.25))
