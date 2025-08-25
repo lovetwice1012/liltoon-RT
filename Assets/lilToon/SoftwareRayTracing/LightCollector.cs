@@ -11,6 +11,10 @@ namespace lilToon.RayTracing
         public struct LightData
         {
             public Vector3 position;
+            public Vector3 direction;
+            public Vector3 up;
+            public Vector2 size;
+            public float angle;
             public Color color;
             public float intensity;
             public LightType type;
@@ -29,6 +33,10 @@ namespace lilToon.RayTracing
                 result.Add(new LightData
                 {
                     position = light.transform.position,
+                    direction = light.transform.forward,
+                    up = light.transform.up,
+                    size = light.areaSize,
+                    angle = light.spotAngle,
                     color = light.color,
                     intensity = light.intensity,
                     type = light.type
