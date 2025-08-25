@@ -5,3 +5,5 @@ Drag and drop unitypackage to the Unity window, or import `https://github.com/li
 ## 日本語
 unitypackageをUnityウィンドウにドラッグ＆ドロップ、もしくはUPMから`https://github.com/lilxyzw/lilToon.git?path=Assets/lilToon#master`をインポートしてください。  
 [ダウンロード](https://github.com/lilxyzw/lilToon/releases) / [ドキュメント](https://lilxyzw.github.io/lilToon/index.html#/ja-jp/) / [lilToonを用いた制作物の配布手順について](https://lilxyzw.github.io/lilToon/#/ja-jp/first?id=liltoonを用いた制作物の配布について)
+### Software Ray Tracing
+- Supports albedo and normal map textures with GGX shading.

@@ -14,7 +14,15 @@ namespace lilToon.RayTracing
             public Vector3 v0;
             public Vector3 v1;
             public Vector3 v2;
-            public Vector3 normal;
+            public Vector3 n0;
+            public Vector3 n1;
+            public Vector3 n2;
+            public Vector4 t0;
+            public Vector4 t1;
+            public Vector4 t2;
+            public Vector2 uv0;
+            public Vector2 uv1;
+            public Vector2 uv2;
             public LilToonParameters material;
         }
 
@@ -140,19 +148,46 @@ namespace lilToon.RayTracing
         {
             var tris = new List<Triangle>();
             var verts = mesh.vertices;
+            var norms = mesh.normals;
+            var tans = mesh.tangents;
+            var uvs = mesh.uvs;
             var indices = mesh.indices;
             Matrix4x4 m = mesh.localToWorld;
             for (int i = 0; i < indices.Length; i += 3)
             {
-                Vector3 v0 = m.MultiplyPoint3x4(verts[indices[i]]);
-                Vector3 v1 = m.MultiplyPoint3x4(verts[indices[i + 1]]);
-                Vector3 v2 = m.MultiplyPoint3x4(verts[indices[i + 2]]);
+                int i0 = indices[i];
+                int i1 = indices[i + 1];
+                int i2 = indices[i + 2];
+                Vector3 v0 = m.MultiplyPoint3x4(verts[i0]);
+                Vector3 v1 = m.MultiplyPoint3x4(verts[i1]);
+                Vector3 v2 = m.MultiplyPoint3x4(verts[i2]);
+
+                Vector3 n0 = m.MultiplyVector(norms[i0]).normalized;
+                Vector3 n1 = m.MultiplyVector(norms[i1]).normalized;
+                Vector3 n2 = m.MultiplyVector(norms[i2]).normalized;
+
+                Vector4 tan0 = tans[i0];
+                Vector4 tan1 = tans[i1];
+                Vector4 tan2 = tans[i2];
+
+                Vector3 t0w = m.MultiplyVector(new Vector3(tan0.x, tan0.y, tan0.z)).normalized;
+                Vector3 t1w = m.MultiplyVector(new Vector3(tan1.x, tan1.y, tan1.z)).normalized;
+                Vector3 t2w = m.MultiplyVector(new Vector3(tan2.x, tan2.y, tan2.z)).normalized;
+
                 Triangle t = new Triangle
                 {
                     v0 = v0,
                     v1 = v1,
                     v2 = v2,
-                    normal = Vector3.Normalize(Vector3.Cross(v1 - v0, v2 - v0)),
+                    n0 = n0,
+                    n1 = n1,
+                    n2 = n2,
+                    t0 = new Vector4(t0w.x, t0w.y, t0w.z, tan0.w),
+                    t1 = new Vector4(t1w.x, t1w.y, t1w.z, tan1.w),
+                    t2 = new Vector4(t2w.x, t2w.y, t2w.z, tan2.w),
+                    uv0 = uvs[i0],
+                    uv1 = uvs[i1],
+                    uv2 = uvs[i2],
                     material = mesh.material
                 };
                 tris.Add(t);
