@@ -91,19 +91,20 @@ namespace lilToon.RayTracing
             Vector3 edge1 = tri.v1 - tri.v0;
             Vector3 edge2 = tri.v2 - tri.v0;
             Vector3 pvec = Vector3.Cross(ray.direction, edge2);
-            float det = Vector3.Dot(edge1, pvec);
-            if (Mathf.Abs(det) < 1e-8f)
+            QuadQuadDouble det = Vector3.Dot(edge1, pvec);
+            if (QuadQuadDouble.Abs(det) < 1e-8)
                 return false;
-            float invDet = 1f / det;
+            QuadQuadDouble invDet = QuadQuadDouble.One / det;
             Vector3 tvec = ray.origin - tri.v0;
-            float u = Vector3.Dot(tvec, pvec) * invDet;
-            if (u < 0f || u > 1f)
+            QuadQuadDouble u = Vector3.Dot(tvec, pvec) * invDet;
+            if (u < 0.0 || u > 1.0)
                 return false;
             Vector3 qvec = Vector3.Cross(tvec, edge1);
-            float v = Vector3.Dot(ray.direction, qvec) * invDet;
-            if (v < 0f || u + v > 1f)
+            QuadQuadDouble v = Vector3.Dot(ray.direction, qvec) * invDet;
+            if (v < 0.0 || u + v > 1.0)
                 return false;
-            distance = Vector3.Dot(edge2, qvec) * invDet;
+            QuadQuadDouble dist = Vector3.Dot(edge2, qvec) * invDet;
+            distance = (float)(double)dist;
             return distance > 0f;
         }
     }

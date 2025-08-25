@@ -34,11 +34,34 @@ namespace lilToon.RayTracing
                 if(mesh == null) continue;
                 var renderer = mf.GetComponent<Renderer>();
                 var mat = renderer ? ParameterExtractor.FromMaterial(renderer.sharedMaterial) : new LilToonParameters();
+
+                var verts = mesh.vertices;
+                var norms = mesh.normals;
+                if(norms == null || norms.Length != verts.Length)
+                {
+                    mesh.RecalculateNormals();
+                    norms = mesh.normals;
+                }
+
+                var uvs = mesh.uv;
+                if(uvs == null || uvs.Length != verts.Length)
+                    uvs = new Vector2[verts.Length];
+
+                var tans = mesh.tangents;
+                if(tans == null || tans.Length != verts.Length)
+                {
+                    if(uvs.Length > 0)
+                        mesh.RecalculateTangents();
+                    tans = mesh.tangents;
+                    if(tans == null || tans.Length != verts.Length)
+                        tans = new Vector4[verts.Length];
+                }
+
                 result.Add(new MeshData{
-                    vertices = mesh.vertices,
-                    normals = mesh.normals,
-                    uvs = mesh.uv,
-                    tangents = mesh.tangents,
+                    vertices = verts,
+                    normals = norms,
+                    uvs = uvs,
+                    tangents = tans,
                     indices = mesh.triangles,
                     material = mat,
                     localToWorld = mf.transform.localToWorldMatrix
@@ -53,11 +76,34 @@ namespace lilToon.RayTracing
                     _bakeMesh.Clear();
                 smr.BakeMesh(_bakeMesh);
                 var mat = ParameterExtractor.FromMaterial(smr.sharedMaterial);
+
+                var verts = _bakeMesh.vertices;
+                var norms = _bakeMesh.normals;
+                if(norms == null || norms.Length != verts.Length)
+                {
+                    _bakeMesh.RecalculateNormals();
+                    norms = _bakeMesh.normals;
+                }
+
+                var uvs = _bakeMesh.uv;
+                if(uvs == null || uvs.Length != verts.Length)
+                    uvs = new Vector2[verts.Length];
+
+                var tans = _bakeMesh.tangents;
+                if(tans == null || tans.Length != verts.Length)
+                {
+                    if(uvs.Length > 0)
+                        _bakeMesh.RecalculateTangents();
+                    tans = _bakeMesh.tangents;
+                    if(tans == null || tans.Length != verts.Length)
+                        tans = new Vector4[verts.Length];
+                }
+
                 result.Add(new MeshData{
-                    vertices = _bakeMesh.vertices,
-                    normals = _bakeMesh.normals,
-                    uvs = _bakeMesh.uv,
-                    tangents = _bakeMesh.tangents,
+                    vertices = verts,
+                    normals = norms,
+                    uvs = uvs,
+                    tangents = tans,
                     indices = _bakeMesh.triangles,
                     material = mat,
                     localToWorld = smr.transform.localToWorldMatrix

@@ -14,8 +14,15 @@ namespace lilToon.RayTracing
         public float clearCoat;
         public float clearCoatRoughness;
         public float sheen;
-        public Texture2D albedoMap;
-        public Texture2D normalMap;
+
+        // Pre-baked texture data for thread-safe sampling
+        public Color[] albedoPixels;
+        public int albedoWidth;
+        public int albedoHeight;
+
+        public Color[] normalPixels;
+        public int normalWidth;
+        public int normalHeight;
     }
 
     public static class ParameterExtractor
@@ -44,8 +51,22 @@ namespace lilToon.RayTracing
             param.clearCoat = material.HasProperty(ClearCoatId) ? material.GetFloat(ClearCoatId) : 0f;
             param.clearCoatRoughness = material.HasProperty(ClearCoatRoughnessId) ? material.GetFloat(ClearCoatRoughnessId) : 0f;
             param.sheen = material.HasProperty(SheenId) ? material.GetFloat(SheenId) : 0f;
-            param.albedoMap = material.HasProperty(MainTexId) ? material.GetTexture(MainTexId) as Texture2D : null;
-            param.normalMap = material.HasProperty(BumpMapId) ? material.GetTexture(BumpMapId) as Texture2D : null;
+
+            Texture2D albedoTex = material.HasProperty(MainTexId) ? material.GetTexture(MainTexId) as Texture2D : null;
+            if (albedoTex != null)
+            {
+                param.albedoPixels = albedoTex.GetPixels();
+                param.albedoWidth = albedoTex.width;
+                param.albedoHeight = albedoTex.height;
+            }
+
+            Texture2D normalTex = material.HasProperty(BumpMapId) ? material.GetTexture(BumpMapId) as Texture2D : null;
+            if (normalTex != null)
+            {
+                param.normalPixels = normalTex.GetPixels();
+                param.normalWidth = normalTex.width;
+                param.normalHeight = normalTex.height;
+            }
             return param;
         }
     }
