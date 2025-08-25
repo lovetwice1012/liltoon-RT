@@ -21,7 +21,9 @@ namespace lilToon.RayTracing
             List<BvhBuilder.BvhNode> nodes,
             List<BvhBuilder.Triangle> triangles,
             List<LightCollector.LightData> lights,
-            Texture2D environment,
+            Color[] environment,
+            int envWidth,
+            int envHeight,
             int areaLightSamples,
             int maxDepth,
             int russianRouletteDepth,
@@ -38,7 +40,7 @@ namespace lilToon.RayTracing
                 {
                     if (environment != null)
                     {
-                        SpectralColor env = SampleEnvironment(environment, currentRay.direction);
+                        SpectralColor env = SampleEnvironment(environment, envWidth, envHeight, currentRay.direction);
                         float envPdf = 1f / (4f * Mathf.PI);
                         float weight = prevPdf > 0f ? PowerHeuristic(prevPdf, envPdf) : 1f;
                         radiance += throughput * env * weight;
@@ -56,19 +58,19 @@ namespace lilToon.RayTracing
                 Vector3 tangent = new Vector3(tan.x, tan.y, tan.z).normalized;
                 Vector3 bitangent = Vector3.Cross(normal, tangent) * tan.w;
 
-                if (tri.material.normalMap != null)
+                if (tri.material.normalPixels != null)
                 {
-                    Color ncol = tri.material.normalMap.GetPixelBilinear(uv.x, uv.y);
+                    Color ncol = SampleColor(tri.material.normalPixels, tri.material.normalWidth, tri.material.normalHeight, uv.x, uv.y);
                     Vector3 nTangent = new Vector3(ncol.r * 2f - 1f, ncol.g * 2f - 1f, ncol.b * 2f - 1f);
                     normal = (tangent * nTangent.x + bitangent * nTangent.y + normal * nTangent.z).normalized;
                 }
 
                 SpectralColor albedo = tri.material.color;
-                if (tri.material.albedoMap != null)
-                    albedo *= SpectralColor.FromTexture(tri.material.albedoMap, uv.x, uv.y);
+                if (tri.material.albedoPixels != null)
+                    albedo *= SpectralColor.FromPixelData(tri.material.albedoPixels, tri.material.albedoWidth, tri.material.albedoHeight, uv.x, uv.y);
 
                 Vector3 viewDir = -currentRay.direction;
-                SpectralColor direct = SampleLights(albedo, tri.material, normal, viewDir, hitPos, nodes, triangles, lights, environment, areaLightSamples, rng);
+                SpectralColor direct = SampleLights(albedo, tri.material, normal, viewDir, hitPos, nodes, triangles, lights, environment, envWidth, envHeight, areaLightSamples, rng);
                 radiance += throughput * direct;
 
                 if (depth >= russianRouletteDepth)
@@ -102,7 +104,9 @@ namespace lilToon.RayTracing
             List<BvhBuilder.BvhNode> nodes,
             List<BvhBuilder.Triangle> triangles,
             List<LightCollector.LightData> lights,
-            Texture2D environment,
+            Color[] environment,
+            int envWidth,
+            int envHeight,
             int areaLightSamples,
             Random rng)
         {
@@ -203,7 +207,7 @@ namespace lilToon.RayTracing
                 Ray shadowRay = new Ray(hitPos + lightDir * 1e-3f, lightDir);
                 if (!Raycaster.Raycast(shadowRay, nodes, triangles, out _, out _))
                 {
-                    SpectralColor env = SampleEnvironment(environment, lightDir);
+                    SpectralColor env = SampleEnvironment(environment, envWidth, envHeight, lightDir);
                     SpectralColor brdf = EvaluateBrdf(albedo, mat, normal, lightDir, viewDir);
                     float brdfPdf = PdfBrdf(mat, normal, viewDir, lightDir);
                     float lightPdf = 1f / (4f * Mathf.PI);
@@ -277,11 +281,34 @@ namespace lilToon.RayTracing
             return new Vector3(r * Mathf.Cos(phi), z, r * Mathf.Sin(phi));
         }
 
-        static SpectralColor SampleEnvironment(Texture2D env, Vector3 dir)
+        static SpectralColor SampleEnvironment(Color[] env, int width, int height, Vector3 dir)
         {
             float u = 0.5f + Mathf.Atan2(dir.z, dir.x) / (2f * Mathf.PI);
             float v = 0.5f - Mathf.Asin(Mathf.Clamp(dir.y, -1f, 1f)) / Mathf.PI;
-            return SpectralColor.FromTexture(env, u, v);
+            return SpectralColor.FromPixelData(env, width, height, u, v);
+        }
+
+        static Color SampleColor(Color[] pixels, int width, int height, float u, float v)
+        {
+            if (pixels == null || pixels.Length == 0)
+                return Color.white;
+            u = Mathf.Repeat(u, 1f);
+            v = Mathf.Repeat(v, 1f);
+            float x = u * (width - 1);
+            float y = v * (height - 1);
+            int x0 = Mathf.FloorToInt(x);
+            int y0 = Mathf.FloorToInt(y);
+            int x1 = Mathf.Min(x0 + 1, width - 1);
+            int y1 = Mathf.Min(y0 + 1, height - 1);
+            float tx = x - x0;
+            float ty = y - y0;
+            Color c00 = pixels[y0 * width + x0];
+            Color c10 = pixels[y0 * width + x1];
+            Color c01 = pixels[y1 * width + x0];
+            Color c11 = pixels[y1 * width + x1];
+            Color c0 = Color.Lerp(c00, c10, tx);
+            Color c1 = Color.Lerp(c01, c11, tx);
+            return Color.Lerp(c0, c1, ty);
         }
 
         static float PdfBrdf(LilToonParameters mat, Vector3 normal, Vector3 viewDir, Vector3 lightDir)

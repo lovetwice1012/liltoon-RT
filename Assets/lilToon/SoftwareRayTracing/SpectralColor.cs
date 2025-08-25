@@ -30,6 +30,30 @@ namespace lilToon.RayTracing
             return FromRGB(tex.GetPixelBilinear(u, v));
         }
 
+        public static SpectralColor FromPixelData(Color[] pixels, int width, int height, float u, float v)
+        {
+            if (pixels == null || pixels.Length == 0)
+                return Black;
+            u = Mathf.Repeat(u, 1f);
+            v = Mathf.Repeat(v, 1f);
+            float x = u * (width - 1);
+            float y = v * (height - 1);
+            int x0 = Mathf.FloorToInt(x);
+            int y0 = Mathf.FloorToInt(y);
+            int x1 = Mathf.Min(x0 + 1, width - 1);
+            int y1 = Mathf.Min(y0 + 1, height - 1);
+            float tx = x - x0;
+            float ty = y - y0;
+            Color c00 = pixels[y0 * width + x0];
+            Color c10 = pixels[y0 * width + x1];
+            Color c01 = pixels[y1 * width + x0];
+            Color c11 = pixels[y1 * width + x1];
+            Color c0 = Color.Lerp(c00, c10, tx);
+            Color c1 = Color.Lerp(c01, c11, tx);
+            Color c = Color.Lerp(c0, c1, ty);
+            return FromRGB(c);
+        }
+
         public Color ToRGB()
         {
             float r =  3.2406f * xyz.x - 1.5372f * xyz.y - 0.4986f * xyz.z;

@@ -31,6 +31,12 @@ namespace lilToon.RayTracing
         List<BvhBuilder.Triangle> _triangles;
         List<LightCollector.LightData> _lights;
         Texture2D _environment;
+        Color[] _environmentPixels;
+        int _envWidth;
+        int _envHeight;
+
+        Color[] _colorBuffer;
+        System.Random[] _rngs;
 
         void OnEnable()
         {
@@ -74,10 +80,15 @@ namespace lilToon.RayTracing
                 _environment = new Texture2D(2, 2, TextureFormat.RGBA32, false);
                 _environment.wrapMode = TextureWrapMode.Clamp;
                 _environment.LoadImage(data);
+                _environmentPixels = _environment.GetPixels();
+                _envWidth = _environment.width;
+                _envHeight = _environment.height;
             }
-            catch (Exception)
+            catch (Exception e)
             {
+                Debug.LogError($"Failed to load environment: {e.Message}");
                 _environment = null;
+                _environmentPixels = null;
             }
         }
 
@@ -98,19 +109,28 @@ namespace lilToon.RayTracing
                 _frameCount = 0;
             }
 
-            var colors = new Color[width * height];
+            if (_colorBuffer == null || _colorBuffer.Length != width * height)
+                _colorBuffer = new Color[width * height];
+            if (_rngs == null || _rngs.Length != height)
+            {
+                _rngs = new System.Random[height];
+                for (int i = 0; i < height; i++)
+                    _rngs[i] = new System.Random(i * 9973);
+            }
+
+            var colors = _colorBuffer;
             int frameIndex = _frameCount + 1;
             Parallel.For(0, height, y =>
             {
+                var rng = _rngs[y];
                 for (int x = 0; x < width; ++x)
                 {
-                    var rng = new Random(x * 73856093 ^ y * 19349663 ^ frameIndex);
                     SpectralColor col = SpectralColor.Black;
                     for (int s = 0; s < samplesPerPixel; ++s)
                     {
                         var offset = new Vector2((float)rng.NextDouble(), (float)rng.NextDouble());
                         Ray ray = RayGenerator.Generate(targetCamera, x, y, width, height, offset);
-                        col += Shading.Shade(ray, _nodes, _triangles, _lights, _environment, areaLightSamples, maxDepth, russianRouletteDepth, rng);
+                        col += Shading.Shade(ray, _nodes, _triangles, _lights, _environmentPixels, _envWidth, _envHeight, areaLightSamples, maxDepth, russianRouletteDepth, rng);
                     }
                     col /= samplesPerPixel;
                     int idx = y * width + x;
