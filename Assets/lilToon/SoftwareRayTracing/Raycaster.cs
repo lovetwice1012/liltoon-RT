@@ -49,13 +49,39 @@ namespace lilToon.RayTracing
 
         static bool RayAabb(Ray ray, Bounds bounds, float maxDist)
         {
-            Vector3 invDir = new Vector3(1f / ray.direction.x, 1f / ray.direction.y, 1f / ray.direction.z);
-            Vector3 t1 = (bounds.min - ray.origin) * invDir;
-            Vector3 t2 = (bounds.max - ray.origin) * invDir;
-            float tmin = Mathf.Max(Mathf.Max(Mathf.Min(t1.x, t2.x), Mathf.Min(t1.y, t2.y)), Mathf.Min(t1.z, t2.z));
-            float tmax = Mathf.Min(Mathf.Min(Mathf.Max(t1.x, t2.x), Mathf.Max(t1.y, t2.y)), Mathf.Max(t1.z, t2.z));
-            if (tmax < 0 || tmin > tmax)
-                return false;
+            float tmin = 0f;
+            float tmax = maxDist;
+            Vector3 o = ray.origin;
+            Vector3 d = ray.direction;
+
+            for (int i = 0; i < 3; i++)
+            {
+                float dir = d[i];
+                float min = bounds.min[i];
+                float max = bounds.max[i];
+                if (Mathf.Abs(dir) < 1e-8f)
+                {
+                    if (o[i] < min || o[i] > max)
+                        return false;
+                }
+                else
+                {
+                    float inv = 1f / dir;
+                    float t1 = (min - o[i]) * inv;
+                    float t2 = (max - o[i]) * inv;
+                    if (t1 > t2)
+                    {
+                        float tmp = t1;
+                        t1 = t2;
+                        t2 = tmp;
+                    }
+                    tmin = Mathf.Max(tmin, t1);
+                    tmax = Mathf.Min(tmax, t2);
+                    if (tmin > tmax)
+                        return false;
+                }
+            }
+
             return tmin < maxDist;
         }
 

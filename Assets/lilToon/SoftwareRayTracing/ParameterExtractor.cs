@@ -17,6 +17,11 @@ namespace lilToon.RayTracing
 
     public static class ParameterExtractor
     {
+        static readonly int ColorId = Shader.PropertyToID("_Color");
+        static readonly int MetallicId = Shader.PropertyToID("_Metallic");
+        static readonly int SmoothnessId = Shader.PropertyToID("_Smoothness");
+        static readonly int MainTexId = Shader.PropertyToID("_MainTex");
+        static readonly int BumpMapId = Shader.PropertyToID("_BumpMap");
         /// <summary>
         /// Creates a <see cref="LilToonParameters"/> snapshot from a material while
         /// preserving lilToon parameter compatibility.
@@ -26,12 +31,12 @@ namespace lilToon.RayTracing
             LilToonParameters param = new LilToonParameters();
             if(material == null) return param;
 
-            param.color = material.HasProperty("_Color") ? material.GetColor("_Color") : Color.white;
-            param.metallic = material.HasProperty("_Metallic") ? material.GetFloat("_Metallic") : 0f;
+            param.color = material.HasProperty(ColorId) ? material.GetColor(ColorId) : Color.white;
+            param.metallic = material.HasProperty(MetallicId) ? material.GetFloat(MetallicId) : 0f;
             // lilToon uses smoothness; convert to roughness for ray tracing.
-            param.roughness = material.HasProperty("_Smoothness") ? 1f - material.GetFloat("_Smoothness") : 1f;
-            param.albedoMap = material.HasProperty("_MainTex") ? material.GetTexture("_MainTex") as Texture2D : null;
-            param.normalMap = material.HasProperty("_BumpMap") ? material.GetTexture("_BumpMap") as Texture2D : null;
+            param.roughness = material.HasProperty(SmoothnessId) ? 1f - material.GetFloat(SmoothnessId) : 1f;
+            param.albedoMap = material.HasProperty(MainTexId) ? material.GetTexture(MainTexId) as Texture2D : null;
+            param.normalMap = material.HasProperty(BumpMapId) ? material.GetTexture(BumpMapId) as Texture2D : null;
             return param;
         }
     }
