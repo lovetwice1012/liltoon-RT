@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using UnityEngine;
 
 namespace lilToon.RayTracing
@@ -17,6 +16,7 @@ namespace lilToon.RayTracing
         public int width = 256;
         public int height = 256;
         public int samplesPerPixel = 1;
+       
 
         Texture2D _output;
         Color[] _accumulation;
@@ -93,7 +93,7 @@ namespace lilToon.RayTracing
                     colors[idx] = _accumulation[idx] / frameIndex;
                 }
             });
-            _frameCount = frameIndex;
+            _frameCount =   }
             _output.SetPixels(colors);
             _output.Apply();
             Shader.SetGlobalTexture("_lilSoftwareRayTex", _output);

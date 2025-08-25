@@ -11,8 +11,8 @@ namespace lilToon.RayTracing
         /// Create a ray going through a pixel on the screen.
         /// </summary>
         /// <param name="camera">Camera used for generating the ray.</param>
-        /// <param name="x">Pixel x coordinate.</param>
-        /// <param name="y">Pixel y coordinate.</param>
+        /// <param name="x">Pixel x coordinate with subpixel offset.</param>
+        /// <param name="y">Pixel y coordinate with subpixel offset.</param>
         /// <param name="width">Screen width in pixels.</param>
         /// <param name="height">Screen height in pixels.</param>
         /// <param name="pixelOffset">Random sub-pixel offset.</param>
