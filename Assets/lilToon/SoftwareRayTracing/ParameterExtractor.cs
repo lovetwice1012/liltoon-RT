@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace lilToon.RayTracing
@@ -58,8 +59,9 @@ namespace lilToon.RayTracing
                 Color[] pixels = readable.GetPixels();
                 return pixels;
             }
-            catch
+            catch (Exception e)
             {
+                Debug.LogError($"Failed to read pixels from {tex?.name ?? "texture"}: {e.Message}");
                 return null;
             }
             finally

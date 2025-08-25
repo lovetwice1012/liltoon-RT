@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
+using System.Threading;
 using UnityEngine;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -41,7 +41,7 @@ namespace lilToon.RayTracing
         int _envHeight;
 
         Color[] _colorBuffer;
-        System.Random[] _rngs;
+        readonly ThreadLocal<System.Random> _rng = new ThreadLocal<System.Random>(() => new System.Random(Guid.NewGuid().GetHashCode()));
 
         ComputeBuffer _triangleBuffer;
         ComputeBuffer _materialBuffer;
@@ -155,13 +155,13 @@ namespace lilToon.RayTracing
             UpdateComputeBuffers();
         }
 
-        async void LoadEnvironment()
+        void LoadEnvironment()
         {
             if (string.IsNullOrEmpty(environmentPath))
                 return;
             try
             {
-                byte[] data = await File.ReadAllBytesAsync(environmentPath);
+                byte[] data = File.ReadAllBytes(environmentPath);
                 _environment = new Texture2D(2, 2, TextureFormat.RGBA32, false);
                 _environment.wrapMode = TextureWrapMode.Clamp;
                 _environment.LoadImage(data);
@@ -271,12 +271,6 @@ namespace lilToon.RayTracing
 
             if (_colorBuffer == null || _colorBuffer.Length != width * height)
                 _colorBuffer = new Color[width * height];
-            if (_rngs == null || _rngs.Length != height)
-            {
-                _rngs = new System.Random[height];
-                for (int i = 0; i < height; i++)
-                    _rngs[i] = new System.Random(i * 9973);
-            }
 
             var camParams = new RayGenerator.CameraParams
             {
@@ -292,7 +286,7 @@ namespace lilToon.RayTracing
             int frameIndex = _frameCount + 1;
             Parallel.For(0, height, y =>
             {
-                var rng = _rngs[y];
+                var rng = _rng.Value;
                 for (int x = 0; x < width; ++x)
                 {
                     SpectralColor col = SpectralColor.Black;
