@@ -28,26 +28,7 @@ namespace lilToon.RayTracing
             Color radiance = Color.black;
             Color throughput = Color.white;
             Ray currentRay = ray;
-            var tri = triangles[triIndex];
-            Vector3 hitPos = ray.origin + ray.direction * dist;
 
-            Vector3 bary = Barycentric(hitPos, tri.v0, tri.v1, tri.v2);
-            Vector2 uv = tri.uv0 * bary.x + tri.uv1 * bary.y + tri.uv2 * bary.z;
-            Vector3 normal = (tri.n0 * bary.x + tri.n1 * bary.y + tri.n2 * bary.z).normalized;
-            Vector4 tan = tri.t0 * bary.x + tri.t1 * bary.y + tri.t2 * bary.z;
-            Vector3 tangent = new Vector3(tan.x, tan.y, tan.z).normalized;
-            Vector3 bitangent = Vector3.Cross(normal, tangent) * tan.w;
-
-            if (tri.material.normalMap != null)
-            {
-                Color ncol = tri.material.normalMap.GetPixelBilinear(uv.x, uv.y);
-                Vector3 nTangent = new Vector3(ncol.r * 2f - 1f, ncol.g * 2f - 1f, ncol.b * 2f - 1f);
-                normal = (tangent * nTangent.x + bitangent * nTangent.y + normal * nTangent.z).normalized;
-            }
-
-            Color albedo = tri.material.color;
-            if (tri.material.albedoMap != null)
-                albedo *= tri.material.albedoMap.GetPixelBilinear(uv.x, uv.y);
             for (int depth = 0; depth < MaxDepth; depth++)
             {
                 if (!Raycaster.Raycast(currentRay, nodes, triangles, out float dist, out int triIndex))
@@ -55,14 +36,29 @@ namespace lilToon.RayTracing
 
                 var tri = triangles[triIndex];
                 Vector3 hitPos = currentRay.origin + currentRay.direction * dist;
-                Vector3 normal = tri.normal;
-                Vector3 viewDir = -currentRay.direction;
 
-                // Direct lighting
-                Color direct = SampleLights(tri.material, normal, viewDir, hitPos, nodes, triangles, lights);
+                Vector3 bary = Barycentric(hitPos, tri.v0, tri.v1, tri.v2);
+                Vector2 uv = tri.uv0 * bary.x + tri.uv1 * bary.y + tri.uv2 * bary.z;
+                Vector3 normal = (tri.n0 * bary.x + tri.n1 * bary.y + tri.n2 * bary.z).normalized;
+                Vector4 tan = tri.t0 * bary.x + tri.t1 * bary.y + tri.t2 * bary.z;
+                Vector3 tangent = new Vector3(tan.x, tan.y, tan.z).normalized;
+                Vector3 bitangent = Vector3.Cross(normal, tangent) * tan.w;
+
+                if (tri.material.normalMap != null)
+                {
+                    Color ncol = tri.material.normalMap.GetPixelBilinear(uv.x, uv.y);
+                    Vector3 nTangent = new Vector3(ncol.r * 2f - 1f, ncol.g * 2f - 1f, ncol.b * 2f - 1f);
+                    normal = (tangent * nTangent.x + bitangent * nTangent.y + normal * nTangent.z).normalized;
+                }
+
+                Color albedo = tri.material.color;
+                if (tri.material.albedoMap != null)
+                    albedo *= tri.material.albedoMap.GetPixelBilinear(uv.x, uv.y);
+
+                Vector3 viewDir = -currentRay.direction;
+                Color direct = SampleLights(albedo, tri.material, normal, viewDir, hitPos, nodes, triangles, lights);
                 radiance += throughput * direct;
 
-                // Russian roulette termination
                 if (depth >= RussianRouletteDepth)
                 {
                     float q = Mathf.Max(throughput.r, Mathf.Max(throughput.g, throughput.b));
@@ -72,7 +68,6 @@ namespace lilToon.RayTracing
                     throughput /= Mathf.Max(q, 1e-3f);
                 }
 
-                // Sample next direction from BRDF
                 Vector3 newDir = SampleBrdf(tri.material, normal, viewDir, out Color brdf, out float pdf);
                 float ndotd = Mathf.Max(0f, Vector3.Dot(newDir, normal));
                 if (pdf <= 0f || ndotd <= 0f)
@@ -86,6 +81,7 @@ namespace lilToon.RayTracing
         }
 
         static Color SampleLights(
+            Color albedo,
             LilToonParameters mat,
             Vector3 normal,
             Vector3 viewDir,
@@ -107,11 +103,10 @@ namespace lilToon.RayTracing
                         Vector3 lightDir = toLight / lightDistance;
 
                         Ray shadowRay = new Ray(hitPos + lightDir * 1e-3f, lightDir);
-                        if (Raycaster.Raycast(shadowRay, nodes, triangles, out float shadowDist, out _) &&
-                            shadowDist < lightDistance)
+                        if (Raycaster.Raycast(shadowRay, nodes, triangles, out float shadowDist, out _) && shadowDist < lightDistance)
                             continue;
 
-                        Color brdf = EvaluateBrdf(albedo, tri.material.metallic, tri.material.roughness, normal, lightDir, -ray.direction);
+                        Color brdf = EvaluateBrdf(albedo, mat.metallic, mat.roughness, normal, lightDir, viewDir);
                         result += brdf * light.color * light.intensity;
                         break;
                     }
@@ -121,7 +116,7 @@ namespace lilToon.RayTracing
                         Ray shadowRay = new Ray(hitPos + lightDir * 1e-3f, lightDir);
                         if (Raycaster.Raycast(shadowRay, nodes, triangles, out _, out _))
                             continue;
-                        Color brdf = EvaluateBrdf(albedo, tri.material.metallic, tri.material.roughness, normal, lightDir, -ray.direction);
+                        Color brdf = EvaluateBrdf(albedo, mat.metallic, mat.roughness, normal, lightDir, viewDir);
                         result += brdf * light.color * light.intensity;
                         break;
                     }
@@ -137,11 +132,10 @@ namespace lilToon.RayTracing
                             continue;
 
                         Ray shadowRay = new Ray(hitPos + lightDir * 1e-3f, lightDir);
-                        if (Raycaster.Raycast(shadowRay, nodes, triangles, out float shadowDist, out _) &&
-                            shadowDist < lightDistance)
+                        if (Raycaster.Raycast(shadowRay, nodes, triangles, out float shadowDist, out _) && shadowDist < lightDistance)
                             continue;
 
-                        Color brdf = EvaluateBrdf(albedo, tri.material.metallic, tri.material.roughness, normal, lightDir, -ray.direction);
+                        Color brdf = EvaluateBrdf(albedo, mat.metallic, mat.roughness, normal, lightDir, viewDir);
                         result += brdf * light.color * light.intensity * cosAngle;
                         break;
                     }
@@ -153,7 +147,8 @@ namespace lilToon.RayTracing
 
                         for (int i = 0; i < AreaLightSamples; i++)
                         {
-                            Vector3 samplePos = light.position +
+                            Vector3 samplePos =
+                                light.position +
                                 (Random.value - 0.5f) * light.size.x * right +
                                 (Random.value - 0.5f) * light.size.y * up;
                             Vector3 toLight = samplePos - hitPos;
@@ -161,10 +156,10 @@ namespace lilToon.RayTracing
                             Vector3 lightDir = toLight / lightDistance;
 
                             Ray shadowRay = new Ray(hitPos + lightDir * 1e-3f, lightDir);
-                            if (Raycaster.Raycast(shadowRay, nodes, triangles, out float shadowDist, out _) &&
-                                shadowDist < lightDistance)
+                            if (Raycaster.Raycast(shadowRay, nodes, triangles, out float shadowDist, out _) && shadowDist < lightDistance)
                                 continue;
-                            Color brdf = EvaluateBrdf(albedo, tri.material.metallic, tri.material.roughness, normal, lightDir, -ray.direction);
+
+                            Color brdf = EvaluateBrdf(albedo, mat.metallic, mat.roughness, normal, lightDir, viewDir);
                             contrib += brdf * light.color * light.intensity;
                         }
 
@@ -187,16 +182,6 @@ namespace lilToon.RayTracing
             float metallic = mat.metallic;
             if (Random.value < metallic)
             {
-                Vector3 reflectDir = Vector3.Reflect(ray.direction, normal).normalized;
-                Ray reflectRay = new Ray(hitPos + reflectDir * 1e-3f, reflectDir);
-                Color reflected = Shade(reflectRay, nodes, triangles, lights, depth + 1);
-
-                float fresnel = tri.material.metallic +
-                                (1f - tri.material.metallic) *
-                                Mathf.Pow(1f - Mathf.Max(0f, Vector3.Dot(-ray.direction, normal)), 5f);
-                float reflectivity = (1f - tri.material.roughness) * fresnel;
-                result += reflected * reflectivity;
-                // Perfect mirror reflection
                 Vector3 dir = Vector3.Reflect(-viewDir, normal).normalized;
                 brdf = Color.white * metallic;
                 pdf = Mathf.Max(metallic, 1e-3f);
@@ -204,7 +189,6 @@ namespace lilToon.RayTracing
             }
             else
             {
-                // Cosine-weighted diffuse reflection
                 Vector3 dir = SampleHemisphere(normal);
                 float cos = Mathf.Max(0f, Vector3.Dot(dir, normal));
                 brdf = mat.color * (1f - metallic) / Mathf.PI;
@@ -223,7 +207,6 @@ namespace lilToon.RayTracing
             float y = r * Mathf.Sin(theta);
             float z = Mathf.Sqrt(1f - u1);
 
-            // Build orthonormal basis
             Vector3 tangent = Vector3.Normalize(Vector3.Cross(normal, Mathf.Abs(normal.x) > 0.1f ? Vector3.up : Vector3.right));
             Vector3 bitangent = Vector3.Cross(normal, tangent);
             return (x * tangent + y * bitangent + z * normal).normalized;
