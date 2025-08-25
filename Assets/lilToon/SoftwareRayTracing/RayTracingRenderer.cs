@@ -72,6 +72,7 @@ namespace lilToon.RayTracing
             public Vector3 min; public float pad0;
             public Vector3 max; public float pad1;
             public int left; public int right; public int start; public int count;
+            public int next; public Vector3 pad2;
         }
 
         void OnEnable()
@@ -278,7 +279,8 @@ namespace lilToon.RayTracing
                         left = n.left,
                         right = n.right,
                         start = n.start,
-                        count = n.count
+                        count = n.count,
+                        next = n.next
                     };
                 }
                 _nodeBuffer = new ComputeBuffer(gpuNodes.Length, Marshal.SizeOf(typeof(GpuNode)));
