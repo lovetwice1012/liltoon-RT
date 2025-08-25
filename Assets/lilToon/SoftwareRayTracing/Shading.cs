@@ -122,7 +122,7 @@ namespace lilToon.RayTracing
                         if (Raycaster.Raycast(shadowRay, nodes, triangles, out float shadowDist, out _) && shadowDist < lightDistance)
                             continue;
 
-                        SpectralColor brdf = EvaluateBrdf(albedo, mat.metallic, mat.roughness, normal, lightDir, viewDir);
+                        SpectralColor brdf = EvaluateBrdf(albedo, mat, normal, lightDir, viewDir);
                         float brdfPdf = PdfBrdf(mat, normal, viewDir, lightDir);
                         float lightPdf = 1f;
                         float weight = PowerHeuristic(lightPdf, brdfPdf);
@@ -135,7 +135,7 @@ namespace lilToon.RayTracing
                         Ray shadowRay = new Ray(hitPos + lightDir * 1e-3f, lightDir);
                         if (Raycaster.Raycast(shadowRay, nodes, triangles, out _, out _))
                             continue;
-                        SpectralColor brdf = EvaluateBrdf(albedo, mat.metallic, mat.roughness, normal, lightDir, viewDir);
+                        SpectralColor brdf = EvaluateBrdf(albedo, mat, normal, lightDir, viewDir);
                         float brdfPdf = PdfBrdf(mat, normal, viewDir, lightDir);
                         float lightPdf = 1f;
                         float weight = PowerHeuristic(lightPdf, brdfPdf);
@@ -157,7 +157,7 @@ namespace lilToon.RayTracing
                         if (Raycaster.Raycast(shadowRay, nodes, triangles, out float shadowDist, out _) && shadowDist < lightDistance)
                             continue;
 
-                        SpectralColor brdf = EvaluateBrdf(albedo, mat.metallic, mat.roughness, normal, lightDir, viewDir);
+                        SpectralColor brdf = EvaluateBrdf(albedo, mat, normal, lightDir, viewDir);
                         float brdfPdf = PdfBrdf(mat, normal, viewDir, lightDir);
                         float lightPdf = 1f;
                         float weight = PowerHeuristic(lightPdf, brdfPdf);
@@ -184,7 +184,7 @@ namespace lilToon.RayTracing
                             if (Raycaster.Raycast(shadowRay, nodes, triangles, out float shadowDist, out _) && shadowDist < lightDistance)
                                 continue;
 
-                            SpectralColor brdf = EvaluateBrdf(albedo, mat.metallic, mat.roughness, normal, lightDir, viewDir);
+                            SpectralColor brdf = EvaluateBrdf(albedo, mat, normal, lightDir, viewDir);
                             float brdfPdf = PdfBrdf(mat, normal, viewDir, lightDir);
                             float lightPdf = 1f;
                             float weight = PowerHeuristic(lightPdf, brdfPdf);
@@ -204,7 +204,7 @@ namespace lilToon.RayTracing
                 if (!Raycaster.Raycast(shadowRay, nodes, triangles, out _, out _))
                 {
                     SpectralColor env = SampleEnvironment(environment, lightDir);
-                    SpectralColor brdf = EvaluateBrdf(albedo, mat.metallic, mat.roughness, normal, lightDir, viewDir);
+                    SpectralColor brdf = EvaluateBrdf(albedo, mat, normal, lightDir, viewDir);
                     float brdfPdf = PdfBrdf(mat, normal, viewDir, lightDir);
                     float lightPdf = 1f / (4f * Mathf.PI);
                     float weight = PowerHeuristic(lightPdf, brdfPdf);
@@ -223,22 +223,33 @@ namespace lilToon.RayTracing
             out SpectralColor brdf,
             out float pdf)
         {
-            float metallic = mat.metallic;
-            if (rng.NextDouble() < metallic)
+            float diffWeight = 1f - mat.metallic;
+            float specWeight = mat.metallic;
+            float clearWeight = mat.clearCoat;
+            float totalWeight = diffWeight + specWeight + clearWeight;
+
+            float r = (float)rng.NextDouble() * Mathf.Max(totalWeight, 1e-3f);
+            Vector3 dir;
+            if (r < diffWeight)
             {
-                Vector3 dir = Vector3.Reflect(-viewDir, normal).normalized;
-                brdf = SpectralColor.White * metallic;
-                pdf = Mathf.Max(metallic, 1e-3f);
-                return dir;
+                dir = SampleHemisphere(normal, rng);
             }
             else
             {
-                Vector3 dir = SampleHemisphere(normal, rng);
-                float cos = Mathf.Max(0f, Vector3.Dot(dir, normal));
-                brdf = mat.color * ((1f - metallic) / Mathf.PI);
-                pdf = cos * (1f - metallic) / Mathf.PI;
-                return dir;
+                dir = Vector3.Reflect(-viewDir, normal).normalized;
             }
+
+            brdf = EvaluateBrdf(mat.color, mat, normal, dir, viewDir);
+
+            float cos = Mathf.Max(0f, Vector3.Dot(dir, normal));
+            float diffusePdf = diffWeight / Mathf.Max(totalWeight, 1e-3f) * cos / Mathf.PI;
+            float specPdf = 0f;
+            Vector3 refl = Vector3.Reflect(-viewDir, normal).normalized;
+            if (Vector3.Dot(refl, dir) > 0.999f)
+                specPdf = (specWeight + clearWeight) / Mathf.Max(totalWeight, 1e-3f);
+
+            pdf = diffusePdf + specPdf;
+            return dir;
         }
 
         static Vector3 SampleHemisphere(Vector3 normal, Random rng)
@@ -275,14 +286,17 @@ namespace lilToon.RayTracing
 
         static float PdfBrdf(LilToonParameters mat, Vector3 normal, Vector3 viewDir, Vector3 lightDir)
         {
-            float metallic = mat.metallic;
-            float diffusePdf = Mathf.Max(0f, Vector3.Dot(normal, lightDir)) / Mathf.PI * (1f - metallic);
+            float diffWeight = 1f - mat.metallic;
+            float specWeight = mat.metallic;
+            float clearWeight = mat.clearCoat;
+            float total = diffWeight + specWeight + clearWeight;
+
+            float diffusePdf = Mathf.Max(0f, Vector3.Dot(normal, lightDir)) / Mathf.PI * diffWeight / Mathf.Max(total, 1e-3f);
             float specPdf = 0f;
-            if (metallic > 0f)
+            Vector3 refl = Vector3.Reflect(-viewDir, normal).normalized;
+            if (Vector3.Dot(refl, lightDir) > 0.999f)
             {
-                Vector3 refl = Vector3.Reflect(-viewDir, normal).normalized;
-                if (Vector3.Dot(refl, lightDir) > 0.999f)
-                    specPdf = metallic;
+                specPdf = (specWeight + clearWeight) / Mathf.Max(total, 1e-3f);
             }
             return diffusePdf + specPdf;
         }
@@ -294,8 +308,14 @@ namespace lilToon.RayTracing
             return a2 / (a2 + b2 + 1e-7f);
         }
 
-        static SpectralColor EvaluateBrdf(SpectralColor albedo, float metallic, float roughness, Vector3 normal, Vector3 lightDir, Vector3 viewDir)
+        static SpectralColor EvaluateBrdf(SpectralColor albedo, LilToonParameters mat, Vector3 normal, Vector3 lightDir, Vector3 viewDir)
         {
+            float metallic = mat.metallic;
+            float roughness = mat.roughness;
+            float clearCoat = mat.clearCoat;
+            float clearCoatRoughness = mat.clearCoatRoughness;
+            float sheen = mat.sheen;
+
             Vector3 halfDir = (lightDir + viewDir).normalized;
 
             float ndotl = Mathf.Max(0f, Vector3.Dot(normal, lightDir));
@@ -316,11 +336,33 @@ namespace lilToon.RayTracing
 
             SpectralColor F0 = SpectralColor.Lerp(SpectralColor.FromRGB(new Color(0.04f, 0.04f, 0.04f)), albedo, metallic);
             SpectralColor F = F0 + (SpectralColor.White - F0) * Mathf.Pow(1f - vdoth, 5f);
-
             SpectralColor spec = F * (D * G / (4f * ndotv * ndotl + 1e-5f));
-            SpectralColor diffuse = (albedo / Mathf.PI) * (1f - metallic);
 
-            return (diffuse + spec) * ndotl;
+            // Diffuse term with optional sheen
+            SpectralColor diffuse = (albedo / Mathf.PI) * (1f - metallic);
+            if (sheen > 0f)
+            {
+                SpectralColor sheenColor = albedo * sheen * Mathf.Pow(1f - vdoth, 5f) * (1f - metallic);
+                diffuse += sheenColor;
+            }
+
+            // Clear coat specular using a simple GGX lobe
+            SpectralColor clear = SpectralColor.Black;
+            if (clearCoat > 0f)
+            {
+                float ccRough = Mathf.Max(0.001f, clearCoatRoughness * clearCoatRoughness);
+                float ccA = ccRough * ccRough;
+                float ccDenom = ndoth * ndoth * (ccA - 1f) + 1f;
+                float Dc = ccA / (Mathf.PI * ccDenom * ccDenom + 1e-7f);
+                float kc = (ccRough + 1f); kc = (kc * kc) / 8f;
+                float Gvc = ndotv / (ndotv * (1f - kc) + kc);
+                float Glc = ndotl / (ndotl * (1f - kc) + kc);
+                float Gc = Gvc * Glc;
+                float Fc = 0.04f + 0.96f * Mathf.Pow(1f - vdoth, 5f);
+                clear = SpectralColor.White * (Fc * (Dc * Gc / (4f * ndotv * ndotl + 1e-5f))) * clearCoat;
+            }
+
+            return (diffuse + spec + clear) * ndotl;
         }
 
         static Vector3 Barycentric(Vector3 p, Vector3 a, Vector3 b, Vector3 c)
