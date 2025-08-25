@@ -20,6 +20,7 @@ namespace lilToon.RayTracing
             Ray ray,
             List<BvhBuilder.BvhNode> nodes,
             List<BvhBuilder.Triangle> triangles,
+            List<LilToonParameters> materials,
             List<LightCollector.LightData> lights,
             Color[] environment,
             int envWidth,
@@ -49,6 +50,7 @@ namespace lilToon.RayTracing
                 }
 
                 var tri = triangles[triIndex];
+                LilToonParameters mat = materials[tri.materialIndex];
                 Vector3 hitPos = currentRay.origin + currentRay.direction * dist;
 
                 Vector3 bary = Barycentric(hitPos, tri.v0, tri.v1, tri.v2);
@@ -58,19 +60,19 @@ namespace lilToon.RayTracing
                 Vector3 tangent = new Vector3(tan.x, tan.y, tan.z).normalized;
                 Vector3 bitangent = Vector3.Cross(normal, tangent) * tan.w;
 
-                if (tri.material.normalPixels != null)
+                if (mat.normalPixels != null)
                 {
-                    Color ncol = SampleColor(tri.material.normalPixels, tri.material.normalWidth, tri.material.normalHeight, uv.x, uv.y);
+                    Color ncol = SampleColor(mat.normalPixels, mat.normalWidth, mat.normalHeight, uv.x, uv.y);
                     Vector3 nTangent = new Vector3(ncol.r * 2f - 1f, ncol.g * 2f - 1f, ncol.b * 2f - 1f);
                     normal = (tangent * nTangent.x + bitangent * nTangent.y + normal * nTangent.z).normalized;
                 }
 
-                SpectralColor albedo = tri.material.color;
-                if (tri.material.albedoPixels != null)
-                    albedo *= SpectralColor.FromPixelData(tri.material.albedoPixels, tri.material.albedoWidth, tri.material.albedoHeight, uv.x, uv.y);
+                SpectralColor albedo = mat.color;
+                if (mat.albedoPixels != null)
+                    albedo *= SpectralColor.FromPixelData(mat.albedoPixels, mat.albedoWidth, mat.albedoHeight, uv.x, uv.y);
 
                 Vector3 viewDir = -currentRay.direction;
-                SpectralColor direct = SampleLights(albedo, tri.material, normal, viewDir, hitPos, nodes, triangles, lights, environment, envWidth, envHeight, areaLightSamples, rng);
+                SpectralColor direct = SampleLights(albedo, mat, normal, viewDir, hitPos, nodes, triangles, materials, lights, environment, envWidth, envHeight, areaLightSamples, rng);
                 radiance += throughput * direct;
 
                 if (depth >= russianRouletteDepth)
@@ -82,7 +84,7 @@ namespace lilToon.RayTracing
                     throughput /= Mathf.Max(q, 1e-3f);
                 }
 
-                Vector3 newDir = SampleBrdf(tri.material, normal, viewDir, rng, out SpectralColor brdf, out float pdf);
+                Vector3 newDir = SampleBrdf(mat, normal, viewDir, rng, out SpectralColor brdf, out float pdf);
                 float ndotd = Mathf.Max(0f, Vector3.Dot(newDir, normal));
                 if (pdf <= 0f || ndotd <= 0f)
                     break;
@@ -103,6 +105,7 @@ namespace lilToon.RayTracing
             Vector3 hitPos,
             List<BvhBuilder.BvhNode> nodes,
             List<BvhBuilder.Triangle> triangles,
+            List<LilToonParameters> materials,
             List<LightCollector.LightData> lights,
             Color[] environment,
             int envWidth,
@@ -127,10 +130,7 @@ namespace lilToon.RayTracing
                             continue;
 
                         SpectralColor brdf = EvaluateBrdf(albedo, mat, normal, lightDir, viewDir);
-                        float brdfPdf = PdfBrdf(mat, normal, viewDir, lightDir);
-                        float lightPdf = 1f;
-                        float weight = PowerHeuristic(lightPdf, brdfPdf);
-                        result += brdf * light.spectrum * light.intensity * weight / Mathf.Max(lightPdf, 1e-3f);
+                        result += brdf * light.spectrum * light.intensity / Mathf.Max(lightDistance * lightDistance, 1e-4f);
                         break;
                     }
                     case LightType.Directional:
@@ -140,10 +140,7 @@ namespace lilToon.RayTracing
                         if (Raycaster.Raycast(shadowRay, nodes, triangles, out _, out _))
                             continue;
                         SpectralColor brdf = EvaluateBrdf(albedo, mat, normal, lightDir, viewDir);
-                        float brdfPdf = PdfBrdf(mat, normal, viewDir, lightDir);
-                        float lightPdf = 1f;
-                        float weight = PowerHeuristic(lightPdf, brdfPdf);
-                        result += brdf * light.spectrum * light.intensity * weight / Mathf.Max(lightPdf, 1e-3f);
+                        result += brdf * light.spectrum * light.intensity;
                         break;
                     }
                     case LightType.Spot:
@@ -162,10 +159,7 @@ namespace lilToon.RayTracing
                             continue;
 
                         SpectralColor brdf = EvaluateBrdf(albedo, mat, normal, lightDir, viewDir);
-                        float brdfPdf = PdfBrdf(mat, normal, viewDir, lightDir);
-                        float lightPdf = 1f;
-                        float weight = PowerHeuristic(lightPdf, brdfPdf);
-                        result += brdf * light.spectrum * light.intensity * cosAngle * weight / Mathf.Max(lightPdf, 1e-3f);
+                        result += brdf * light.spectrum * light.intensity * cosAngle / Mathf.Max(lightDistance * lightDistance, 1e-4f);
                         break;
                     }
                     case LightType.Area:
@@ -190,9 +184,11 @@ namespace lilToon.RayTracing
 
                             SpectralColor brdf = EvaluateBrdf(albedo, mat, normal, lightDir, viewDir);
                             float brdfPdf = PdfBrdf(mat, normal, viewDir, lightDir);
-                            float lightPdf = 1f;
+                            float cosLight = Mathf.Max(0f, Vector3.Dot(-lightDir, light.direction.normalized));
+                            float area = Mathf.Max(1e-4f, light.size.x * light.size.y);
+                            float lightPdf = (lightDistance * lightDistance) / (Mathf.Max(cosLight, 1e-4f) * area);
                             float weight = PowerHeuristic(lightPdf, brdfPdf);
-                            contrib += brdf * light.spectrum * light.intensity * weight / Mathf.Max(lightPdf, 1e-3f);
+                            contrib += brdf * light.spectrum * light.intensity * cosLight * weight / Mathf.Max(lightPdf, 1e-3f);
                         }
 
                         result += contrib / Mathf.Max(1, areaLightSamples);
@@ -234,25 +230,35 @@ namespace lilToon.RayTracing
 
             float r = (float)rng.NextDouble() * Mathf.Max(totalWeight, 1e-3f);
             Vector3 dir;
+            float pdfLocal = 0f;
             if (r < diffWeight)
             {
                 dir = SampleHemisphere(normal, rng);
+                float cos = Mathf.Max(0f, Vector3.Dot(dir, normal));
+                pdfLocal = diffWeight / Mathf.Max(totalWeight, 1e-3f) * cos / Mathf.PI;
             }
             else
             {
-                dir = Vector3.Reflect(-viewDir, normal).normalized;
+                bool clear = r >= diffWeight + specWeight;
+                float rough = clear ? Mathf.Max(0.001f, mat.clearCoatRoughness) : Mathf.Max(0.001f, mat.roughness);
+                Vector3 h = SampleGgx(normal, rough, rng);
+                dir = Vector3.Reflect(-viewDir, h).normalized;
+                if (Vector3.Dot(dir, normal) <= 0f)
+                {
+                    brdf = SpectralColor.Black;
+                    pdf = 0f;
+                    return dir;
+                }
+                float ndoth = Mathf.Max(0f, Vector3.Dot(normal, h));
+                float vdoth = Mathf.Max(0f, Vector3.Dot(viewDir, h));
+                float D = GgxDistribution(ndoth, rough);
+                float specPdf = D * ndoth / (4f * Mathf.Max(vdoth, 1e-5f));
+                float weight = clear ? clearWeight : specWeight;
+                pdfLocal = weight / Mathf.Max(totalWeight, 1e-3f) * specPdf;
             }
 
             brdf = EvaluateBrdf(mat.color, mat, normal, dir, viewDir);
-
-            float cos = Mathf.Max(0f, Vector3.Dot(dir, normal));
-            float diffusePdf = diffWeight / Mathf.Max(totalWeight, 1e-3f) * cos / Mathf.PI;
-            float specPdf = 0f;
-            Vector3 refl = Vector3.Reflect(-viewDir, normal).normalized;
-            if (Vector3.Dot(refl, dir) > 0.999f)
-                specPdf = (specWeight + clearWeight) / Mathf.Max(totalWeight, 1e-3f);
-
-            pdf = diffusePdf + specPdf;
+            pdf = pdfLocal;
             return dir;
         }
 
@@ -269,6 +275,37 @@ namespace lilToon.RayTracing
             Vector3 tangent = Vector3.Normalize(Vector3.Cross(normal, Mathf.Abs(normal.x) > 0.1f ? Vector3.up : Vector3.right));
             Vector3 bitangent = Vector3.Cross(normal, tangent);
             return (x * tangent + y * bitangent + z * normal).normalized;
+        }
+
+        static Vector3 SampleGgx(Vector3 normal, float roughness, Random rng)
+        {
+            float u1 = (float)rng.NextDouble();
+            float u2 = (float)rng.NextDouble();
+            float a = roughness * roughness;
+            float phi = 2f * Mathf.PI * u1;
+            float cosTheta = Mathf.Sqrt((1f - u2) / (1f + (a * a - 1f) * u2));
+            float sinTheta = Mathf.Sqrt(Mathf.Max(0f, 1f - cosTheta * cosTheta));
+            Vector3 hLocal = new Vector3(sinTheta * Mathf.Cos(phi), cosTheta, sinTheta * Mathf.Sin(phi));
+            Vector3 tangent = Vector3.Normalize(Vector3.Cross(normal, Mathf.Abs(normal.y) < 0.999f ? Vector3.up : Vector3.right));
+            Vector3 bitangent = Vector3.Cross(normal, tangent);
+            return (tangent * hLocal.x + normal * hLocal.y + bitangent * hLocal.z).normalized;
+        }
+
+        static float GgxDistribution(float ndoth, float roughness)
+        {
+            float a = roughness * roughness;
+            float a2 = a * a;
+            float denom = ndoth * ndoth * (a2 - 1f) + 1f;
+            return a2 / (Mathf.PI * denom * denom + 1e-7f);
+        }
+
+        static float GgxPdf(Vector3 normal, Vector3 viewDir, Vector3 lightDir, float roughness)
+        {
+            Vector3 h = (viewDir + lightDir).normalized;
+            float ndoth = Mathf.Max(0f, Vector3.Dot(normal, h));
+            float vdoth = Mathf.Max(0f, Vector3.Dot(viewDir, h));
+            float D = GgxDistribution(ndoth, roughness);
+            return D * ndoth / (4f * Mathf.Max(vdoth, 1e-5f));
         }
 
         static Vector3 SampleSphere(Random rng)
@@ -318,13 +355,13 @@ namespace lilToon.RayTracing
             float clearWeight = mat.clearCoat;
             float total = diffWeight + specWeight + clearWeight;
 
-            float diffusePdf = Mathf.Max(0f, Vector3.Dot(normal, lightDir)) / Mathf.PI * diffWeight / Mathf.Max(total, 1e-3f);
+            float cos = Mathf.Max(0f, Vector3.Dot(normal, lightDir));
+            float diffusePdf = diffWeight / Mathf.Max(total, 1e-3f) * cos / Mathf.PI;
             float specPdf = 0f;
-            Vector3 refl = Vector3.Reflect(-viewDir, normal).normalized;
-            if (Vector3.Dot(refl, lightDir) > 0.999f)
-            {
-                specPdf = (specWeight + clearWeight) / Mathf.Max(total, 1e-3f);
-            }
+            if (specWeight > 0f)
+                specPdf += specWeight / Mathf.Max(total, 1e-3f) * GgxPdf(normal, viewDir, lightDir, Mathf.Max(0.001f, mat.roughness));
+            if (clearWeight > 0f)
+                specPdf += clearWeight / Mathf.Max(total, 1e-3f) * GgxPdf(normal, viewDir, lightDir, Mathf.Max(0.001f, mat.clearCoatRoughness));
             return diffusePdf + specPdf;
         }
 
