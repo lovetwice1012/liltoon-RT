@@ -45,18 +45,15 @@ namespace lilToon.RayTracing
             height = tex.height;
             if (tex.isReadable)
                 return tex.GetPixels();
-            RenderTexture rt = null;
-            Texture2D readable = null;
-            RenderTexture prev = RenderTexture.active;
+
+            // Avoid expensive GPU -> CPU synchronization by using Graphics.CopyTexture
+            // instead of going through a RenderTexture and ReadPixels.
+            Texture2D copy = null;
             try
             {
-                rt = RenderTexture.GetTemporary(tex.width, tex.height, 0, RenderTextureFormat.Default, RenderTextureReadWrite.Linear);
-                Graphics.Blit(tex, rt);
-                RenderTexture.active = rt;
-                readable = new Texture2D(tex.width, tex.height, TextureFormat.RGBA32, false);
-                readable.ReadPixels(new Rect(0, 0, rt.width, rt.height), 0, 0);
-                readable.Apply();
-                Color[] pixels = readable.GetPixels();
+                copy = new Texture2D(tex.width, tex.height, TextureFormat.RGBA32, false);
+                Graphics.CopyTexture(tex, copy);
+                Color[] pixels = copy.GetPixels();
                 return pixels;
             }
             catch (Exception e)
@@ -66,9 +63,7 @@ namespace lilToon.RayTracing
             }
             finally
             {
-                RenderTexture.active = prev;
-                if (rt != null) RenderTexture.ReleaseTemporary(rt);
-                if (readable != null) Object.Destroy(readable);
+                if (copy != null) Object.Destroy(copy);
             }
         }
         /// <summary>

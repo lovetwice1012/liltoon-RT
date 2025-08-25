@@ -45,6 +45,7 @@ namespace lilToon.RayTracing
 
         ComputeBuffer _triangleBuffer;
         ComputeBuffer _materialBuffer;
+        ComputeBuffer _nodeBuffer;
         int _kernel;
 
         [StructLayout(LayoutKind.Sequential)]
@@ -63,6 +64,14 @@ namespace lilToon.RayTracing
         struct GpuMaterial
         {
             public Vector3 color; public float pad;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct GpuNode
+        {
+            public Vector3 min; public float pad0;
+            public Vector3 max; public float pad1;
+            public int left; public int right; public int start; public int count;
         }
 
         void OnEnable()
@@ -105,6 +114,11 @@ namespace lilToon.RayTracing
             {
                 _materialBuffer.Release();
                 _materialBuffer = null;
+            }
+            if (_nodeBuffer != null)
+            {
+                _nodeBuffer.Release();
+                _nodeBuffer = null;
             }
             _environmentPixels = null;
             _nodes = null;
@@ -179,8 +193,22 @@ namespace lilToon.RayTracing
 
         void Update()
         {
+            if (HierarchyChanged(sceneRoot != null ? sceneRoot.transform : null))
+            {
+                BuildScene();
+            }
             InitTexture();
             Render();
+        }
+
+        bool HierarchyChanged(Transform root)
+        {
+            if (root == null) return false;
+            bool changed = root.hasChanged;
+            root.hasChanged = false;
+            for (int i = 0; i < root.childCount; ++i)
+                changed |= HierarchyChanged(root.GetChild(i));
+            return changed;
         }
 
         void UpdateComputeBuffers()
@@ -197,6 +225,11 @@ namespace lilToon.RayTracing
             {
                 _materialBuffer.Release();
                 _materialBuffer = null;
+            }
+            if (_nodeBuffer != null)
+            {
+                _nodeBuffer.Release();
+                _nodeBuffer = null;
             }
 
             if (_triangles != null && _triangles.Count > 0)
@@ -232,12 +265,34 @@ namespace lilToon.RayTracing
                 _materialBuffer.SetData(gpuMats);
             }
 
+            if (_nodes != null && _nodes.Count > 0)
+            {
+                var gpuNodes = new GpuNode[_nodes.Count];
+                for (int i = 0; i < _nodes.Count; i++)
+                {
+                    var n = _nodes[i];
+                    gpuNodes[i] = new GpuNode
+                    {
+                        min = n.bounds.min,
+                        max = n.bounds.max,
+                        left = n.left,
+                        right = n.right,
+                        start = n.start,
+                        count = n.count
+                    };
+                }
+                _nodeBuffer = new ComputeBuffer(gpuNodes.Length, Marshal.SizeOf(typeof(GpuNode)));
+                _nodeBuffer.SetData(gpuNodes);
+            }
+
             if (rayTracingShader != null)
             {
                 if (_triangleBuffer != null)
                     rayTracingShader.SetBuffer(_kernel, "_Triangles", _triangleBuffer);
                 if (_materialBuffer != null)
                     rayTracingShader.SetBuffer(_kernel, "_Materials", _materialBuffer);
+                if (_nodeBuffer != null)
+                    rayTracingShader.SetBuffer(_kernel, "_Nodes", _nodeBuffer);
             }
         }
 
