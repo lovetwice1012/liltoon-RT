@@ -8,7 +8,7 @@ namespace lilToon.RayTracing
     [System.Serializable]
     public struct LilToonParameters
     {
-        public Color color;
+        public SpectralColor color;
         public float metallic;
         public float roughness;
         public Texture2D albedoMap;
@@ -31,7 +31,7 @@ namespace lilToon.RayTracing
             LilToonParameters param = new LilToonParameters();
             if(material == null) return param;
 
-            param.color = material.HasProperty(ColorId) ? material.GetColor(ColorId) : Color.white;
+            param.color = SpectralColor.FromRGB(material.HasProperty(ColorId) ? material.GetColor(ColorId) : Color.white);
             param.metallic = material.HasProperty(MetallicId) ? material.GetFloat(MetallicId) : 0f;
             // lilToon uses smoothness; convert to roughness for ray tracing.
             param.roughness = material.HasProperty(SmoothnessId) ? 1f - material.GetFloat(SmoothnessId) : 1f;
