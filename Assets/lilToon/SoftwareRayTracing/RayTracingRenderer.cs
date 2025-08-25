@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using UnityEngine;
 
 namespace lilToon.RayTracing
@@ -15,6 +14,7 @@ namespace lilToon.RayTracing
         public GameObject sceneRoot;
         public int width = 256;
         public int height = 256;
+        public int samples = 16;
 
         Texture2D _output;
         List<BvhBuilder.BvhNode> _nodes;
@@ -61,15 +61,21 @@ namespace lilToon.RayTracing
                 return;
 
             var colors = new Color[width * height];
-            Parallel.For(0, height, y =>
+            for (int y = 0; y < height; ++y)
             {
                 for (int x = 0; x < width; ++x)
                 {
-                    Ray ray = RayGenerator.Generate(targetCamera, x, y, width, height);
-                    Color col = Shading.Shade(ray, _nodes, _triangles, _lights);
-                    colors[y * width + x] = col;
+                    Color col = Color.black;
+                    for (int s = 0; s < samples; ++s)
+                    {
+                        float u = x + Random.value;
+                        float v = y + Random.value;
+                        Ray ray = RayGenerator.Generate(targetCamera, u, v, width, height);
+                        col += Shading.Shade(ray, _nodes, _triangles, _lights);
+                    }
+                    colors[y * width + x] = col / samples;
                 }
-            });
+            }
             _output.SetPixels(colors);
             _output.Apply();
             Shader.SetGlobalTexture("_lilSoftwareRayTex", _output);
