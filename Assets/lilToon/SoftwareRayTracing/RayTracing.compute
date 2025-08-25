@@ -21,6 +21,7 @@ struct BvhNode
     float3 min; float pad0;
     float3 max; float pad1;
     int left; int right; int start; int count;
+    int next; float3 pad2;
 };
 
 StructuredBuffer<Triangle> _Triangles;
@@ -61,46 +62,53 @@ void CSMain(uint3 id : SV_DispatchThreadID)
     float minDist = 1e20;
     float3 col = float3(0,0,0);
 
-    int stack[64];
-    int sp = 0;
-    stack[sp++] = 0;
-    while (sp > 0)
+    int ni = 0;
+    while (ni != -1)
     {
-        int ni = stack[--sp];
         BvhNode node = _Nodes[ni];
-        if (!IntersectAABB(_CameraPos, invDir, node.min, node.max, minDist)) continue;
-        if (node.count > 0)
+        if (IntersectAABB(_CameraPos, invDir, node.min, node.max, minDist))
         {
-            for (int j = 0; j < node.count; j++)
+            if (node.count > 0)
             {
-                Triangle t = _Triangles[node.start + j];
-                float3 edge1 = t.v1 - t.v0;
-                float3 edge2 = t.v2 - t.v0;
-                float3 pvec = cross(dir, edge2);
-                float det = dot(edge1, pvec);
-                if (abs(det) < 1e-8) continue;
-                float invDet = 1.0 / det;
-                float3 tvec = _CameraPos - t.v0;
-                float utri = dot(tvec, pvec) * invDet;
-                if (utri < 0 || utri > 1) continue;
-                float3 qvec = cross(tvec, edge1);
-                float vtri = dot(dir, qvec) * invDet;
-                if (vtri < 0 || utri + vtri > 1) continue;
-                float dist = dot(edge2, qvec) * invDet;
-                if (dist > 0 && dist < minDist)
+                for (int j = 0; j < node.count; j++)
                 {
-                    minDist = dist;
-                    float w = 1.0 - utri - vtri;
-                    float3 n = normalize(t.n0 * w + t.n1 * utri + t.n2 * vtri);
-                    float3 baseCol = _Materials[t.materialIndex].color;
-                    col = baseCol * saturate(n.y);
+                    Triangle t = _Triangles[node.start + j];
+                    float3 edge1 = t.v1 - t.v0;
+                    float3 edge2 = t.v2 - t.v0;
+                    float3 pvec = cross(dir, edge2);
+                    float det = dot(edge1, pvec);
+                    if (abs(det) < 1e-8) continue;
+                    float invDet = 1.0 / det;
+                    float3 tvec = _CameraPos - t.v0;
+                    float utri = dot(tvec, pvec) * invDet;
+                    if (utri < 0 || utri > 1) continue;
+                    float3 qvec = cross(tvec, edge1);
+                    float vtri = dot(dir, qvec) * invDet;
+                    if (vtri < 0 || utri + vtri > 1) continue;
+                    float dist = dot(edge2, qvec) * invDet;
+                    if (dist > 0 && dist < minDist)
+                    {
+                        minDist = dist;
+                        float w = 1.0 - utri - vtri;
+                        float3 n = normalize(t.n0 * w + t.n1 * utri + t.n2 * vtri);
+                        float3 baseCol = _Materials[t.materialIndex].color;
+                        float3 lightDir = normalize(float3(0.5,1,0.3));
+                        float diff = saturate(dot(n, lightDir));
+                        col = baseCol * (0.1 + diff * 0.9);
+                    }
                 }
+                ni = node.next;
+            }
+            else
+            {
+                if (node.left >= 0) ni = node.left;
+                else if (node.right >= 0) ni = node.right;
+                else ni = node.next;
             }
         }
         else
         {
-            if (node.left >= 0) stack[sp++] = node.left;
-            if (node.right >= 0) stack[sp++] = node.right;
+            ni = node.next;
         }
     }
 

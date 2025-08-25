@@ -19,31 +19,35 @@ namespace lilToon.RayTracing
             return Traverse(0, ray, nodes, triangles, ref distance, ref triangleIndex);
         }
 
-        static bool Traverse(int nodeIndex, Ray ray, List<BvhBuilder.BvhNode> nodes, List<BvhBuilder.Triangle> triangles, ref float hitDist, ref int hitTri)
+        static bool Traverse(int rootIndex, Ray ray, List<BvhBuilder.BvhNode> nodes, List<BvhBuilder.Triangle> triangles, ref float hitDist, ref int hitTri)
         {
-            var node = nodes[nodeIndex];
-            if (!RayAabb(ray, node.bounds, hitDist))
-                return false;
-
             bool hit = false;
-            if (node.left == -1 && node.right == -1)
+            var stack = new Stack<int>();
+            stack.Push(rootIndex);
+            while (stack.Count > 0)
             {
-                for (int i = node.start; i < node.start + node.count; ++i)
+                int nodeIndex = stack.Pop();
+                var node = nodes[nodeIndex];
+                if (!RayAabb(ray, node.bounds, hitDist))
+                    continue;
+
+                if (node.left == -1 && node.right == -1)
                 {
-                    if (RayTriangle(ray, triangles[i], out float dist) && dist < hitDist)
+                    for (int i = node.start; i < node.start + node.count; ++i)
                     {
-                        hit = true;
-                        hitDist = dist;
-                        hitTri = i;
+                        if (RayTriangle(ray, triangles[i], out float dist) && dist < hitDist)
+                        {
+                            hit = true;
+                            hitDist = dist;
+                            hitTri = i;
+                        }
                     }
                 }
-            }
-            else
-            {
-                if (node.left != -1)
-                    hit |= Traverse(node.left, ray, nodes, triangles, ref hitDist, ref hitTri);
-                if (node.right != -1)
-                    hit |= Traverse(node.right, ray, nodes, triangles, ref hitDist, ref hitTri);
+                else
+                {
+                    if (node.right != -1) stack.Push(node.right);
+                    if (node.left != -1) stack.Push(node.left);
+                }
             }
             return hit;
         }

@@ -33,6 +33,7 @@ namespace lilToon.RayTracing
             public int right;
             public int start;
             public int count;
+            public int next;
         }
 
         /// <summary>
@@ -53,6 +54,7 @@ namespace lilToon.RayTracing
             if (triangles.Count > 0)
             {
                 BuildRecursive(triangles, 0, triangles.Count, nodes);
+                AssignNext(nodes);
             }
             return nodes;
         }
@@ -97,6 +99,29 @@ namespace lilToon.RayTracing
             node.count = 0;
             nodes[nodeIndex] = node;
             return nodeIndex;
+        }
+
+        static void AssignNext(List<BvhNode> nodes)
+        {
+            var stack = new Stack<(int node, int next)>();
+            stack.Push((0, -1));
+            while (stack.Count > 0)
+            {
+                var (index, next) = stack.Pop();
+                var n = nodes[index];
+                n.next = next;
+                nodes[index] = n;
+                if (n.left != -1)
+                {
+                    if (n.right != -1)
+                        stack.Push((n.right, next));
+                    stack.Push((n.left, n.right != -1 ? n.right : next));
+                }
+                else if (n.right != -1)
+                {
+                    stack.Push((n.right, next));
+                }
+            }
         }
 
         static float SurfaceArea(Bounds b)
