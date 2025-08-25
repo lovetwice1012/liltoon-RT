@@ -8,6 +8,7 @@ namespace lilToon.RayTracing
     /// </summary>
     public static class GeometryCollector
     {
+        static Mesh _bakeMesh;
         public struct MeshData
         {
             public Vector3[] vertices;
@@ -46,15 +47,18 @@ namespace lilToon.RayTracing
 
             foreach(var smr in root.GetComponentsInChildren<SkinnedMeshRenderer>())
             {
-                var mesh = new Mesh();
-                smr.BakeMesh(mesh);
+                if(_bakeMesh == null)
+                    _bakeMesh = new Mesh();
+                else
+                    _bakeMesh.Clear();
+                smr.BakeMesh(_bakeMesh);
                 var mat = ParameterExtractor.FromMaterial(smr.sharedMaterial);
                 result.Add(new MeshData{
-                    vertices = mesh.vertices,
-                    normals = mesh.normals,
-                    uvs = mesh.uv,
-                    tangents = mesh.tangents,
-                    indices = mesh.triangles,
+                    vertices = _bakeMesh.vertices,
+                    normals = _bakeMesh.normals,
+                    uvs = _bakeMesh.uv,
+                    tangents = _bakeMesh.tangents,
+                    indices = _bakeMesh.triangles,
                     material = mat,
                     localToWorld = smr.transform.localToWorldMatrix
                 });

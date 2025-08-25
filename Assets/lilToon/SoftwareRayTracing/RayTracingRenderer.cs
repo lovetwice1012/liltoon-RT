@@ -17,6 +17,9 @@ namespace lilToon.RayTracing
         public int width = 256;
         public int height = 256;
         public int samplesPerPixel = 1;
+        public int areaLightSamples = 4;
+        public int maxDepth = 8;
+        public int russianRouletteDepth = 3;
        
 
         Texture2D _output;
@@ -86,7 +89,7 @@ namespace lilToon.RayTracing
                     {
                         var offset = new Vector2((float)rng.NextDouble(), (float)rng.NextDouble());
                         Ray ray = RayGenerator.Generate(targetCamera, x, y, width, height, offset);
-                        col += Shading.Shade(ray, _nodes, _triangles, _lights);
+                        col += Shading.Shade(ray, _nodes, _triangles, _lights, areaLightSamples, maxDepth, russianRouletteDepth, rng);
                     }
                     col /= samplesPerPixel;
                     int idx = y * width + x;

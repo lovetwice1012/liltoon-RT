@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -10,10 +11,6 @@ namespace lilToon.RayTracing
     /// </summary>
     public static class Shading
     {
-        const int AreaLightSamples = 4;
-        const int MaxDepth = 8;
-        const int RussianRouletteDepth = 3;
-
         /// <summary>
         /// Evaluate the incoming radiance along a ray using Monte Carlo
         /// path tracing. Lights are sampled explicitly and indirect
@@ -23,13 +20,17 @@ namespace lilToon.RayTracing
             Ray ray,
             List<BvhBuilder.BvhNode> nodes,
             List<BvhBuilder.Triangle> triangles,
-            List<LightCollector.LightData> lights)
+            List<LightCollector.LightData> lights,
+            int areaLightSamples,
+            int maxDepth,
+            int russianRouletteDepth,
+            Random rng)
         {
             Color radiance = Color.black;
             Color throughput = Color.white;
             Ray currentRay = ray;
 
-            for (int depth = 0; depth < MaxDepth; depth++)
+            for (int depth = 0; depth < maxDepth; depth++)
             {
                 if (!Raycaster.Raycast(currentRay, nodes, triangles, out float dist, out int triIndex))
                     break;
@@ -56,19 +57,19 @@ namespace lilToon.RayTracing
                     albedo *= tri.material.albedoMap.GetPixelBilinear(uv.x, uv.y);
 
                 Vector3 viewDir = -currentRay.direction;
-                Color direct = SampleLights(albedo, tri.material, normal, viewDir, hitPos, nodes, triangles, lights);
+                Color direct = SampleLights(albedo, tri.material, normal, viewDir, hitPos, nodes, triangles, lights, areaLightSamples, rng);
                 radiance += throughput * direct;
 
-                if (depth >= RussianRouletteDepth)
+                if (depth >= russianRouletteDepth)
                 {
                     float q = Mathf.Max(throughput.r, Mathf.Max(throughput.g, throughput.b));
                     q = Mathf.Clamp01(q);
-                    if (Random.value > q)
+                    if (rng.NextDouble() > q)
                         break;
                     throughput /= Mathf.Max(q, 1e-3f);
                 }
 
-                Vector3 newDir = SampleBrdf(tri.material, normal, viewDir, out Color brdf, out float pdf);
+                Vector3 newDir = SampleBrdf(tri.material, normal, viewDir, rng, out Color brdf, out float pdf);
                 float ndotd = Mathf.Max(0f, Vector3.Dot(newDir, normal));
                 if (pdf <= 0f || ndotd <= 0f)
                     break;
@@ -88,7 +89,9 @@ namespace lilToon.RayTracing
             Vector3 hitPos,
             List<BvhBuilder.BvhNode> nodes,
             List<BvhBuilder.Triangle> triangles,
-            List<LightCollector.LightData> lights)
+            List<LightCollector.LightData> lights,
+            int areaLightSamples,
+            Random rng)
         {
             Color result = Color.black;
 
@@ -145,12 +148,12 @@ namespace lilToon.RayTracing
                         Vector3 up = light.up.normalized;
                         Color contrib = Color.black;
 
-                        for (int i = 0; i < AreaLightSamples; i++)
+                        for (int i = 0; i < areaLightSamples; i++)
                         {
                             Vector3 samplePos =
                                 light.position +
-                                (Random.value - 0.5f) * light.size.x * right +
-                                (Random.value - 0.5f) * light.size.y * up;
+                                ((float)rng.NextDouble() - 0.5f) * light.size.x * right +
+                                ((float)rng.NextDouble() - 0.5f) * light.size.y * up;
                             Vector3 toLight = samplePos - hitPos;
                             float lightDistance = toLight.magnitude;
                             Vector3 lightDir = toLight / lightDistance;
@@ -163,7 +166,7 @@ namespace lilToon.RayTracing
                             contrib += brdf * light.color * light.intensity;
                         }
 
-                        result += contrib / AreaLightSamples;
+                        result += contrib / Mathf.Max(1, areaLightSamples);
                         break;
                     }
                 }
@@ -176,11 +179,12 @@ namespace lilToon.RayTracing
             LilToonParameters mat,
             Vector3 normal,
             Vector3 viewDir,
+            Random rng,
             out Color brdf,
             out float pdf)
         {
             float metallic = mat.metallic;
-            if (Random.value < metallic)
+            if (rng.NextDouble() < metallic)
             {
                 Vector3 dir = Vector3.Reflect(-viewDir, normal).normalized;
                 brdf = Color.white * metallic;
@@ -189,7 +193,7 @@ namespace lilToon.RayTracing
             }
             else
             {
-                Vector3 dir = SampleHemisphere(normal);
+                Vector3 dir = SampleHemisphere(normal, rng);
                 float cos = Mathf.Max(0f, Vector3.Dot(dir, normal));
                 brdf = mat.color * (1f - metallic) / Mathf.PI;
                 pdf = cos * (1f - metallic) / Mathf.PI;
@@ -197,10 +201,10 @@ namespace lilToon.RayTracing
             }
         }
 
-        static Vector3 SampleHemisphere(Vector3 normal)
+        static Vector3 SampleHemisphere(Vector3 normal, Random rng)
         {
-            float u1 = Random.value;
-            float u2 = Random.value;
+            float u1 = (float)rng.NextDouble();
+            float u2 = (float)rng.NextDouble();
             float r = Mathf.Sqrt(u1);
             float theta = 2f * Mathf.PI * u2;
             float x = r * Mathf.Cos(theta);

@@ -73,13 +73,11 @@ namespace lilToon.RayTracing
             float bestCost = float.MaxValue;
             int bestAxis = -1;
             int bestSplit = -1;
-
+            var leftBounds = new Bounds[count];
+            var rightBounds = new Bounds[count];
             for (int axis = 0; axis < 3; ++axis)
             {
                 triangles.Sort(start, count, new TriangleComparer(axis));
-
-                var leftBounds = new Bounds[count];
-                var rightBounds = new Bounds[count];
 
                 Bounds b = new Bounds(triangles[start].v0, Vector3.zero);
                 for (int i = 0; i < count; ++i)
