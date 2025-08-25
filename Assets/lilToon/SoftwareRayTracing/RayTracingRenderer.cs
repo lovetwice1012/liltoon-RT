@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using UnityEngine;
 
 namespace lilToon.RayTracing
@@ -59,15 +60,17 @@ namespace lilToon.RayTracing
             if (targetCamera == null || _nodes == null)
                 return;
 
-            for (int y = 0; y < height; ++y)
+            var colors = new Color[width * height];
+            Parallel.For(0, height, y =>
             {
                 for (int x = 0; x < width; ++x)
                 {
                     Ray ray = RayGenerator.Generate(targetCamera, x, y, width, height);
                     Color col = Shading.Shade(ray, _nodes, _triangles, _lights);
-                    _output.SetPixel(x, y, col);
+                    colors[y * width + x] = col;
                 }
-            }
+            });
+            _output.SetPixels(colors);
             _output.Apply();
             Shader.SetGlobalTexture("_lilSoftwareRayTex", _output);
         }

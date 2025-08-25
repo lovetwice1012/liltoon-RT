@@ -15,6 +15,7 @@ namespace lilToon.RayTracing
             public Vector2[] uvs;
             public int[] indices;
             public LilToonParameters material;
+            public Matrix4x4 localToWorld;
         }
 
         /// <summary>
@@ -36,7 +37,8 @@ namespace lilToon.RayTracing
                     normals = mesh.normals,
                     uvs = mesh.uv,
                     indices = mesh.triangles,
-                    material = mat
+                    material = mat,
+                    localToWorld = mf.transform.localToWorldMatrix
                 });
             }
 
@@ -50,7 +52,8 @@ namespace lilToon.RayTracing
                     normals = mesh.normals,
                     uvs = mesh.uv,
                     indices = mesh.triangles,
-                    material = mat
+                    material = mat,
+                    localToWorld = smr.transform.localToWorldMatrix
                 });
             }
 
