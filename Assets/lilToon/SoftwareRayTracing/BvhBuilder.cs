@@ -79,56 +79,20 @@ namespace lilToon.RayTracing
                 return nodeIndex;
             }
 
-            float bestCost = float.MaxValue;
-            int bestAxis = -1;
-            int bestSplit = -1;
-            var leftBounds = new Bounds[count];
-            var rightBounds = new Bounds[count];
-            for (int axis = 0; axis < 3; ++axis)
-            {
-                triangles.Sort(start, count, new TriangleComparer(axis));
+            // Choose the axis with the largest extent and split by the median
+            Vector3 size = bounds.size;
+            int axis = 0;
+            if (size.y > size.x && size.y > size.z) axis = 1;
+            else if (size.z > size.x && size.z > size.y) axis = 2;
 
-                Bounds b = new Bounds(triangles[start].v0, Vector3.zero);
-                for (int i = 0; i < count; ++i)
-                {
-                    int idx = start + i;
-                    b.Encapsulate(triangles[idx].v0);
-                    b.Encapsulate(triangles[idx].v1);
-                    b.Encapsulate(triangles[idx].v2);
-                    leftBounds[i] = b;
-                }
+            triangles.Sort(start, count, new TriangleComparer(axis));
+            int split = count / 2;
+            int mid = start + split;
 
-                b = new Bounds(triangles[start + count - 1].v0, Vector3.zero);
-                for (int i = count - 1; i >= 0; --i)
-                {
-                    int idx = start + i;
-                    b.Encapsulate(triangles[idx].v0);
-                    b.Encapsulate(triangles[idx].v1);
-                    b.Encapsulate(triangles[idx].v2);
-                    rightBounds[i] = b;
-                }
-
-                for (int i = 1; i < count; ++i)
-                {
-                    float cost = i * SurfaceArea(leftBounds[i - 1]) + (count - i) * SurfaceArea(rightBounds[i]);
-                    if (cost < bestCost)
-                    {
-                        bestCost = cost;
-                        bestAxis = axis;
-                        bestSplit = i;
-                    }
-                }
-            }
-
-            if (bestAxis == -1)
-            {
-                return nodeIndex;
-            }
-
-            triangles.Sort(start, count, new TriangleComparer(bestAxis));
-            int mid = start + bestSplit;
-            node.left = BuildRecursive(triangles, start, bestSplit, nodes);
-            node.right = BuildRecursive(triangles, mid, count - bestSplit, nodes);
+            node.left = BuildRecursive(triangles, start, split, nodes);
+            node.right = BuildRecursive(triangles, mid, count - split, nodes);
+            node.start = 0;
+            node.count = 0;
             nodes[nodeIndex] = node;
             return nodeIndex;
         }
