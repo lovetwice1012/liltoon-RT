@@ -15,10 +15,11 @@ namespace lilToon.RayTracing
         /// <param name="y">Pixel y coordinate.</param>
         /// <param name="width">Screen width in pixels.</param>
         /// <param name="height">Screen height in pixels.</param>
-        public static Ray Generate(Camera camera, int x, int y, int width, int height)
+        /// <param name="pixelOffset">Random sub-pixel offset.</param>
+        public static Ray Generate(Camera camera, int x, int y, int width, int height, Vector2 pixelOffset)
         {
-            float u = (x + 0.5f) / width;
-            float v = (y + 0.5f) / height;
+            float u = (x + pixelOffset.x) / width;
+            float v = (y + pixelOffset.y) / height;
             return camera.ViewportPointToRay(new Vector3(u, v, 0f));
         }
     }
