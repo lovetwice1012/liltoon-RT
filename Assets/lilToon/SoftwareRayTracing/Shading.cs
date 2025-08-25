@@ -10,6 +10,7 @@ namespace lilToon.RayTracing
     public static class Shading
     {
         const int MaxDepth = 2;
+        const int AreaLightSamples = 4;
 
         /// <summary>
         /// Shades a raycast hit using a simple BRDF and recursive reflections.
@@ -30,20 +31,82 @@ namespace lilToon.RayTracing
 
             foreach (var light in lights)
             {
-                Vector3 toLight = light.position - hitPos;
-                float lightDistance = toLight.magnitude;
-                Vector3 lightDir = toLight / lightDistance;
-
-                // shadow ray with small bias to avoid self-intersection
-                Ray shadowRay = new Ray(hitPos + lightDir * 1e-3f, lightDir);
-                if (Raycaster.Raycast(shadowRay, nodes, triangles, out float shadowDist, out _) &&
-                    shadowDist < lightDistance)
+                switch (light.type)
                 {
-                    continue; // occluded
-                }
+                    case LightType.Point:
+                    {
+                        Vector3 toLight = light.position - hitPos;
+                        float lightDistance = toLight.magnitude;
+                        Vector3 lightDir = toLight / lightDistance;
 
-                Color brdf = EvaluateBrdf(tri.material, tri.normal, lightDir, -ray.direction);
-                result += brdf * light.color * light.intensity;
+                        Ray shadowRay = new Ray(hitPos + lightDir * 1e-3f, lightDir);
+                        if (Raycaster.Raycast(shadowRay, nodes, triangles, out float shadowDist, out _) &&
+                            shadowDist < lightDistance)
+                            continue;
+
+                        Color brdf = EvaluateBrdf(tri.material, tri.normal, lightDir, -ray.direction);
+                        result += brdf * light.color * light.intensity;
+                        break;
+                    }
+                    case LightType.Directional:
+                    {
+                        Vector3 lightDir = -light.direction.normalized;
+                        Ray shadowRay = new Ray(hitPos + lightDir * 1e-3f, lightDir);
+                        if (Raycaster.Raycast(shadowRay, nodes, triangles, out _, out _))
+                            continue;
+
+                        Color brdf = EvaluateBrdf(tri.material, tri.normal, lightDir, -ray.direction);
+                        result += brdf * light.color * light.intensity;
+                        break;
+                    }
+                    case LightType.Spot:
+                    {
+                        Vector3 toLight = light.position - hitPos;
+                        float lightDistance = toLight.magnitude;
+                        Vector3 lightDir = toLight / lightDistance;
+
+                        float cosAngle = Vector3.Dot(lightDir, light.direction.normalized);
+                        float cutoff = Mathf.Cos(light.angle * 0.5f * Mathf.Deg2Rad);
+                        if (cosAngle < cutoff)
+                            continue;
+
+                        Ray shadowRay = new Ray(hitPos + lightDir * 1e-3f, lightDir);
+                        if (Raycaster.Raycast(shadowRay, nodes, triangles, out float shadowDist, out _) &&
+                            shadowDist < lightDistance)
+                            continue;
+
+                        Color brdf = EvaluateBrdf(tri.material, tri.normal, lightDir, -ray.direction);
+                        result += brdf * light.color * light.intensity * cosAngle;
+                        break;
+                    }
+                    case LightType.Area:
+                    {
+                        Vector3 right = Vector3.Cross(light.direction, light.up).normalized;
+                        Vector3 up = light.up.normalized;
+                        Color contrib = Color.black;
+
+                        for (int i = 0; i < AreaLightSamples; i++)
+                        {
+                            Vector3 samplePos = light.position +
+                                (Random.value - 0.5f) * light.size.x * right +
+                                (Random.value - 0.5f) * light.size.y * up;
+                            Vector3 toLight = samplePos - hitPos;
+                            float lightDistance = toLight.magnitude;
+                            Vector3 lightDir = toLight / lightDistance;
+
+                            Ray shadowRay = new Ray(hitPos + lightDir * 1e-3f, lightDir);
+                            if (Raycaster.Raycast(shadowRay, nodes, triangles, out float shadowDist, out _) &&
+                                shadowDist < lightDistance)
+                                continue;
+
+                            Color brdf = EvaluateBrdf(tri.material, tri.normal, lightDir, -ray.direction);
+                            contrib += brdf * light.color * light.intensity;
+                        }
+
+                        result += contrib / AreaLightSamples;
+                        break;
+                    }
+                }
             }
 
             if (depth < MaxDepth)
