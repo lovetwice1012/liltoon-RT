@@ -364,7 +364,6 @@ namespace lilToon
             liteMaterial.renderQueue = lilMaterialUtils.GetTrueRenderQueue(material);
         }
 
-        // TODO : Support other rendering mode
         private void CreateMultiMaterial(Material material)
         {
             material.shader = ltsm;
@@ -372,9 +371,20 @@ namespace lilToon
             else        material.shader = ltsm;
             isMulti = true;
 
-            if(renderingModeBuf == RenderingMode.Cutout)            material.SetFloat("_TransparentMode", 1.0f);
-            else if(renderingModeBuf == RenderingMode.Transparent)  material.SetFloat("_TransparentMode", 2.0f);
-            else                                                    material.SetFloat("_TransparentMode", 0.0f);
+            // Encode rendering mode for multi shader variants
+            float transparentMode = 0.0f;
+            switch(renderingModeBuf)
+            {
+                case RenderingMode.Cutout:         transparentMode = 1.0f; break;
+                case RenderingMode.Transparent:    transparentMode = 2.0f; break;
+                case RenderingMode.Refraction:
+                case RenderingMode.RefractionBlur: transparentMode = 3.0f; break;
+                case RenderingMode.Fur:
+                case RenderingMode.FurTwoPass:     transparentMode = 4.0f; break;
+                case RenderingMode.FurCutout:      transparentMode = 5.0f; break;
+                case RenderingMode.Gem:            transparentMode = 6.0f; break;
+            }
+            material.SetFloat("_TransparentMode", transparentMode);
             material.SetFloat("_UseClippingCanceller", 0.0f);
 
             if(shaderSetting.LIL_FEATURE_CLIPPING_CANCELLER) material.SetFloat("_UseClippingCanceller", 1.0f);

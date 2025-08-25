@@ -1,11 +1,15 @@
-import random, math
+import random
+import math
+
 
 def dot(a, b):
     return a[0]*b[0] + a[1]*b[1] + a[2]*b[2]
 
+
 def normalize(v):
     l = math.sqrt(dot(v, v))
     return (v[0]/l, v[1]/l, v[2]/l)
+
 
 def evaluate_brdf(albedo, metallic, roughness, clearcoat, clearcoat_roughness, sheen, n, l, v):
     h = normalize((l[0]+v[0], l[1]+v[1], l[2]+v[2]))
@@ -43,6 +47,7 @@ def evaluate_brdf(albedo, metallic, roughness, clearcoat, clearcoat_roughness, s
         clear = clearcoat * (Fc * (Dc*Gc/(4*ndotv*ndotl + 1e-5)))
     return (diffuse + spec + clear) * ndotl
 
+
 def sample_hemisphere():
     u1 = random.random()
     u2 = random.random()
@@ -51,7 +56,9 @@ def sample_hemisphere():
     sin_theta = math.sqrt(max(0.0, 1 - cos_theta*cos_theta))
     return (sin_theta*math.cos(phi), cos_theta, sin_theta*math.sin(phi))
 
-if __name__ == "__main__":
+
+def test_brdf_energy_conservation():
+    random.seed(0)
     n = (0,1,0)
     v = (0,1,0)
     albedo = 1.0
@@ -60,11 +67,12 @@ if __name__ == "__main__":
     clearcoat = 0.2
     clearcoat_roughness = 0.1
     sheen = 0.3
-    samples = 10000
+    samples = 1000
     total = 0.0
     for _ in range(samples):
         l = sample_hemisphere()
         pdf = 1.0/(2*math.pi)
         brdf = evaluate_brdf(albedo, metallic, roughness, clearcoat, clearcoat_roughness, sheen, n, l, v)
         total += brdf / pdf
-    print("Estimated reflectance:", total / samples)
+    reflectance = total / samples
+    assert reflectance <= 1.0 + 1e-2

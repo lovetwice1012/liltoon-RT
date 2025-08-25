@@ -53,7 +53,7 @@ namespace lilToon.RayTracing
             param.sheen = material.HasProperty(SheenId) ? material.GetFloat(SheenId) : 0f;
 
             Texture2D albedoTex = material.HasProperty(MainTexId) ? material.GetTexture(MainTexId) as Texture2D : null;
-            if (albedoTex != null)
+            if (albedoTex != null && albedoTex.isReadable)
             {
                 param.albedoPixels = albedoTex.GetPixels();
                 param.albedoWidth = albedoTex.width;
@@ -61,7 +61,7 @@ namespace lilToon.RayTracing
             }
 
             Texture2D normalTex = material.HasProperty(BumpMapId) ? material.GetTexture(BumpMapId) as Texture2D : null;
-            if (normalTex != null)
+            if (normalTex != null && normalTex.isReadable)
             {
                 param.normalPixels = normalTex.GetPixels();
                 param.normalWidth = normalTex.width;
