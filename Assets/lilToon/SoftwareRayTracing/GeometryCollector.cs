@@ -8,7 +8,6 @@ namespace lilToon.RayTracing
     /// </summary>
     public static class GeometryCollector
     {
-        static Mesh _bakeMesh;
         public struct MeshData
         {
             public Vector3[] vertices;
@@ -76,33 +75,34 @@ namespace lilToon.RayTracing
                 });
             }
 
+            Mesh bakeMesh = null;
             foreach(var smr in root.GetComponentsInChildren<SkinnedMeshRenderer>())
             {
-                if(_bakeMesh == null)
-                    _bakeMesh = new Mesh();
+                if(bakeMesh == null)
+                    bakeMesh = new Mesh();
                 else
-                    _bakeMesh.Clear();
-                smr.BakeMesh(_bakeMesh);
+                    bakeMesh.Clear();
+                smr.BakeMesh(bakeMesh);
                 var mat = ParameterExtractor.FromMaterial(smr.sharedMaterial);
 
-                var verts = _bakeMesh.vertices;
-                var norms = _bakeMesh.normals;
+                var verts = bakeMesh.vertices;
+                var norms = bakeMesh.normals;
                 if(norms == null || norms.Length != verts.Length)
                 {
-                    _bakeMesh.RecalculateNormals();
-                    norms = _bakeMesh.normals;
+                    bakeMesh.RecalculateNormals();
+                    norms = bakeMesh.normals;
                 }
 
-                var uvs = _bakeMesh.uv;
+                var uvs = bakeMesh.uv;
                 if(uvs == null || uvs.Length != verts.Length)
                     uvs = new Vector2[verts.Length];
 
-                var tans = _bakeMesh.tangents;
+                var tans = bakeMesh.tangents;
                 if(tans == null || tans.Length != verts.Length)
                 {
                     if(uvs.Length > 0)
-                        _bakeMesh.RecalculateTangents();
-                    tans = _bakeMesh.tangents;
+                        bakeMesh.RecalculateTangents();
+                    tans = bakeMesh.tangents;
                     if(tans == null || tans.Length != verts.Length)
                         tans = new Vector4[verts.Length];
                 }
@@ -112,11 +112,14 @@ namespace lilToon.RayTracing
                     normals = norms,
                     uvs = uvs,
                     tangents = tans,
-                    indices = _bakeMesh.triangles,
+                    indices = bakeMesh.triangles,
                     material = mat,
                     localToWorld = smr.transform.localToWorldMatrix
                 });
             }
+
+            if(bakeMesh != null)
+                Object.Destroy(bakeMesh);
 
             return result;
         }

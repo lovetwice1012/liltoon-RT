@@ -59,6 +59,9 @@ namespace lilToon.RayTracing
             float r =  3.2406f * xyz.x - 1.5372f * xyz.y - 0.4986f * xyz.z;
             float g = -0.9689f * xyz.x + 1.8758f * xyz.y + 0.0415f * xyz.z;
             float b =  0.0557f * xyz.x - 0.2040f * xyz.y + 1.0570f * xyz.z;
+            r = Mathf.Clamp01(r);
+            g = Mathf.Clamp01(g);
+            b = Mathf.Clamp01(b);
             return new Color(r, g, b, 1f);
         }
 

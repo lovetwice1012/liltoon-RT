@@ -29,6 +29,7 @@ namespace lilToon.RayTracing
         int _frameCount;
         List<BvhBuilder.BvhNode> _nodes;
         List<BvhBuilder.Triangle> _triangles;
+        List<LilToonParameters> _materials;
         List<LightCollector.LightData> _lights;
         Texture2D _environment;
         Color[] _environmentPixels;
@@ -50,6 +51,36 @@ namespace lilToon.RayTracing
             InitTexture();
         }
 
+        void OnDisable()
+        {
+            if (_output != null)
+            {
+                DestroyImmediate(_output);
+                _output = null;
+            }
+            if (_environment != null)
+            {
+                DestroyImmediate(_environment);
+                _environment = null;
+            }
+            _environmentPixels = null;
+            _nodes = null;
+            _triangles = null;
+            _materials = null;
+            _lights = null;
+        }
+
+#if UNITY_EDITOR
+        void OnValidate()
+        {
+            if (!Application.isPlaying)
+            {
+                BuildScene();
+                LoadEnvironment();
+            }
+        }
+#endif
+
         void InitTexture()
         {
             if (_output == null || _output.width != width || _output.height != height)
@@ -66,7 +97,7 @@ namespace lilToon.RayTracing
         void BuildScene()
         {
             var meshes = GeometryCollector.Collect(sceneRoot);
-            _nodes = BvhBuilder.Build(meshes, out _triangles);
+            _nodes = BvhBuilder.Build(meshes, out _triangles, out _materials);
             _lights = LightCollector.Collect(sceneRoot);
         }
 
@@ -130,7 +161,7 @@ namespace lilToon.RayTracing
                     {
                         var offset = new Vector2((float)rng.NextDouble(), (float)rng.NextDouble());
                         Ray ray = RayGenerator.Generate(targetCamera, x, y, width, height, offset);
-                        col += Shading.Shade(ray, _nodes, _triangles, _lights, _environmentPixels, _envWidth, _envHeight, areaLightSamples, maxDepth, russianRouletteDepth, rng);
+                        col += Shading.Shade(ray, _nodes, _triangles, _materials, _lights, _environmentPixels, _envWidth, _envHeight, areaLightSamples, maxDepth, russianRouletteDepth, rng);
                     }
                     col /= samplesPerPixel;
                     int idx = y * width + x;

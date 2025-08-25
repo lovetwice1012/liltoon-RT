@@ -23,7 +23,7 @@ namespace lilToon.RayTracing
             public Vector2 uv0;
             public Vector2 uv1;
             public Vector2 uv2;
-            public LilToonParameters material;
+            public int materialIndex;
         }
 
         public struct BvhNode
@@ -38,21 +38,30 @@ namespace lilToon.RayTracing
         /// <summary>
         /// Builds a BVH from mesh data collected via <see cref="GeometryCollector"/>.
         /// </summary>
-        public static List<BvhNode> Build(List<GeometryCollector.MeshData> meshes, out List<Triangle> triangles)
+        public static List<BvhNode> Build(List<GeometryCollector.MeshData> meshes, out List<Triangle> triangles, out List<LilToonParameters> materials)
         {
             triangles = new List<Triangle>();
+            materials = new List<LilToonParameters>();
             foreach (var mesh in meshes)
             {
-                triangles.AddRange(TrianglesFromMesh(mesh));
+                int matIndex = materials.Count;
+                materials.Add(mesh.material);
+                triangles.AddRange(TrianglesFromMesh(mesh, matIndex));
             }
 
             var nodes = new List<BvhNode>();
-            BuildRecursive(triangles, 0, triangles.Count, nodes);
+            if (triangles.Count > 0)
+            {
+                BuildRecursive(triangles, 0, triangles.Count, nodes);
+            }
             return nodes;
         }
 
         static int BuildRecursive(List<Triangle> triangles, int start, int count, List<BvhNode> nodes)
         {
+            if (count <= 0)
+                return -1;
+
             Bounds bounds = new Bounds(triangles[start].v0, Vector3.zero);
             for (int i = start; i < start + count; ++i)
             {
@@ -142,7 +151,7 @@ namespace lilToon.RayTracing
             }
         }
 
-        public static List<Triangle> TrianglesFromMesh(GeometryCollector.MeshData mesh)
+        public static List<Triangle> TrianglesFromMesh(GeometryCollector.MeshData mesh, int matIndex)
         {
             var tris = new List<Triangle>();
             var verts = mesh.vertices;
@@ -186,7 +195,7 @@ namespace lilToon.RayTracing
                     uv0 = uvs[i0],
                     uv1 = uvs[i1],
                     uv2 = uvs[i2],
-                    material = mesh.material
+                    materialIndex = matIndex
                 };
                 tris.Add(t);
             }

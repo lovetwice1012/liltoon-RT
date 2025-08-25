@@ -35,6 +35,35 @@ namespace lilToon.RayTracing
         static readonly int ClearCoatId = Shader.PropertyToID("_ClearCoat");
         static readonly int ClearCoatRoughnessId = Shader.PropertyToID("_ClearCoatRoughness");
         static readonly int SheenId = Shader.PropertyToID("_Sheen");
+
+        static Color[] GetPixelsSafe(Texture2D tex, out int width, out int height)
+        {
+            width = height = 0;
+            if (tex == null) return null;
+            width = tex.width;
+            height = tex.height;
+            if (tex.isReadable)
+                return tex.GetPixels();
+            try
+            {
+                RenderTexture rt = RenderTexture.GetTemporary(tex.width, tex.height, 0, RenderTextureFormat.Default, RenderTextureReadWrite.Linear);
+                Graphics.Blit(tex, rt);
+                RenderTexture prev = RenderTexture.active;
+                RenderTexture.active = rt;
+                Texture2D readable = new Texture2D(tex.width, tex.height, TextureFormat.RGBA32, false);
+                readable.ReadPixels(new Rect(0, 0, rt.width, rt.height), 0, 0);
+                readable.Apply();
+                RenderTexture.active = prev;
+                RenderTexture.ReleaseTemporary(rt);
+                Color[] pixels = readable.GetPixels();
+                Object.Destroy(readable);
+                return pixels;
+            }
+            catch
+            {
+                return null;
+            }
+        }
         /// <summary>
         /// Creates a <see cref="LilToonParameters"/> snapshot from a material while
         /// preserving lilToon parameter compatibility.
@@ -53,20 +82,10 @@ namespace lilToon.RayTracing
             param.sheen = material.HasProperty(SheenId) ? material.GetFloat(SheenId) : 0f;
 
             Texture2D albedoTex = material.HasProperty(MainTexId) ? material.GetTexture(MainTexId) as Texture2D : null;
-            if (albedoTex != null && albedoTex.isReadable)
-            {
-                param.albedoPixels = albedoTex.GetPixels();
-                param.albedoWidth = albedoTex.width;
-                param.albedoHeight = albedoTex.height;
-            }
+            param.albedoPixels = GetPixelsSafe(albedoTex, out param.albedoWidth, out param.albedoHeight);
 
             Texture2D normalTex = material.HasProperty(BumpMapId) ? material.GetTexture(BumpMapId) as Texture2D : null;
-            if (normalTex != null && normalTex.isReadable)
-            {
-                param.normalPixels = normalTex.GetPixels();
-                param.normalWidth = normalTex.width;
-                param.normalHeight = normalTex.height;
-            }
+            param.normalPixels = GetPixelsSafe(normalTex, out param.normalWidth, out param.normalHeight);
             return param;
         }
     }
