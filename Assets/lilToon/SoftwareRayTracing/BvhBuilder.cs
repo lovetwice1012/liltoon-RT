@@ -79,18 +79,20 @@ namespace lilToon.RayTracing
                 return nodeIndex;
             }
 
-            // Choose the axis with the largest extent and split by the median
+            // Choose the axis with the largest extent and partition around the median
             Vector3 size = bounds.size;
             int axis = 0;
             if (size.y > size.x && size.y > size.z) axis = 1;
             else if (size.z > size.x && size.z > size.y) axis = 2;
 
-            triangles.Sort(start, count, new TriangleComparer(axis));
-            int split = count / 2;
-            int mid = start + split;
+            int mid = start + count / 2;
+            Select(triangles, start, start + count - 1, mid, axis);
 
-            node.left = BuildRecursive(triangles, start, split, nodes);
-            node.right = BuildRecursive(triangles, mid, count - split, nodes);
+            int leftCount = mid - start;
+            int rightCount = count - leftCount;
+
+            node.left = BuildRecursive(triangles, start, leftCount, nodes);
+            node.right = BuildRecursive(triangles, mid, rightCount, nodes);
             node.start = 0;
             node.count = 0;
             nodes[nodeIndex] = node;
@@ -103,16 +105,42 @@ namespace lilToon.RayTracing
             return 2f * (s.x * s.y + s.y * s.z + s.z * s.x);
         }
 
-        class TriangleComparer : IComparer<Triangle>
+        static void Select(List<Triangle> tris, int left, int right, int k, int axis)
         {
-            int axis;
-            public TriangleComparer(int axis) { this.axis = axis; }
-            public int Compare(Triangle a, Triangle b)
+            while (left < right)
             {
-                float ac = (a.v0[axis] + a.v1[axis] + a.v2[axis]) / 3f;
-                float bc = (b.v0[axis] + b.v1[axis] + b.v2[axis]) / 3f;
-                return ac.CompareTo(bc);
+                int pivot = Partition(tris, left, right, axis);
+                if (k == pivot) return;
+                if (k < pivot) right = pivot - 1;
+                else left = pivot + 1;
             }
+        }
+
+        static int Partition(List<Triangle> tris, int left, int right, int axis)
+        {
+            float pivotValue = Centroid(tris[right], axis);
+            int storeIndex = left;
+            for (int i = left; i < right; i++)
+            {
+                if (Centroid(tris[i], axis) < pivotValue)
+                {
+                    Swap(tris, storeIndex, i);
+                    storeIndex++;
+                }
+            }
+            Swap(tris, storeIndex, right);
+            return storeIndex;
+        }
+
+        static float Centroid(Triangle t, int axis)
+            => (t.v0[axis] + t.v1[axis] + t.v2[axis]) / 3f;
+
+        static void Swap(List<Triangle> tris, int a, int b)
+        {
+            if (a == b) return;
+            Triangle tmp = tris[a];
+            tris[a] = tris[b];
+            tris[b] = tmp;
         }
 
         public static List<Triangle> TrianglesFromMesh(GeometryCollector.MeshData mesh, int matIndex)
