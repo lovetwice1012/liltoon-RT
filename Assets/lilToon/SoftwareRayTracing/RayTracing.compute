@@ -1,0 +1,69 @@
+#pragma kernel CSMain
+
+struct Triangle
+{
+    float3 v0; float pad0;
+    float3 v1; float pad1;
+    float3 v2; float pad2;
+    float3 n0; float pad3;
+    float3 n1; float pad4;
+    float3 n2; float pad5;
+    int materialIndex; float3 pad6;
+};
+
+struct Material
+{
+    float3 color; float pad;
+};
+
+StructuredBuffer<Triangle> _Triangles;
+StructuredBuffer<Material> _Materials;
+int _NumTriangles;
+float3 _CameraPos;
+float3 _CameraForward;
+float3 _CameraRight;
+float3 _CameraUp;
+float _TanFov;
+float _Aspect;
+
+RWTexture2D<float4> Result;
+
+[numthreads(8,8,1)]
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+    uint width, height;
+    Result.GetDimensions(width, height);
+    if (id.x >= width || id.y >= height) return;
+
+    float u = ((id.x + 0.5) / width - 0.5) * 2.0;
+    float v = ((id.y + 0.5) / height - 0.5) * 2.0;
+    float3 dir = normalize(_CameraForward + _CameraRight * (u * _TanFov * _Aspect) + _CameraUp * (v * _TanFov));
+    float minDist = 1e20;
+    float3 col = float3(0,0,0);
+    for (int i = 0; i < _NumTriangles; i++)
+    {
+        Triangle t = _Triangles[i];
+        float3 edge1 = t.v1 - t.v0;
+        float3 edge2 = t.v2 - t.v0;
+        float3 pvec = cross(dir, edge2);
+        float det = dot(edge1, pvec);
+        if (abs(det) < 1e-8) continue;
+        float invDet = 1.0 / det;
+        float3 tvec = _CameraPos - t.v0;
+        float utri = dot(tvec, pvec) * invDet;
+        if (utri < 0 || utri > 1) continue;
+        float3 qvec = cross(tvec, edge1);
+        float vtri = dot(dir, qvec) * invDet;
+        if (vtri < 0 || utri + vtri > 1) continue;
+        float dist = dot(edge2, qvec) * invDet;
+        if (dist > 0 && dist < minDist)
+        {
+            minDist = dist;
+            float w = 1.0 - utri - vtri;
+            float3 n = normalize(t.n0 * w + t.n1 * utri + t.n2 * vtri);
+            float3 baseCol = _Materials[t.materialIndex].color;
+            col = baseCol * saturate(n.y);
+        }
+    }
+    Result[id.xy] = float4(col, 1.0);
+}
