@@ -16,8 +16,16 @@ struct Material
     float3 color; float pad;
 };
 
+struct BvhNode
+{
+    float3 min; float pad0;
+    float3 max; float pad1;
+    int left; int right; int start; int count;
+};
+
 StructuredBuffer<Triangle> _Triangles;
 StructuredBuffer<Material> _Materials;
+StructuredBuffer<BvhNode> _Nodes;
 int _NumTriangles;
 float3 _CameraPos;
 float3 _CameraForward;
@@ -27,6 +35,17 @@ float _TanFov;
 float _Aspect;
 
 RWTexture2D<float4> Result;
+
+bool IntersectAABB(float3 orig, float3 invDir, float3 bmin, float3 bmax, float maxDist)
+{
+    float3 t0 = (bmin - orig) * invDir;
+    float3 t1 = (bmax - orig) * invDir;
+    float3 tmin = min(t0, t1);
+    float3 tmax = max(t0, t1);
+    float tEnter = max(max(tmin.x, tmin.y), max(tmin.z, 0.0));
+    float tExit = min(min(tmax.x, tmax.y), min(tmax.z, maxDist));
+    return tExit >= tEnter;
+}
 
 [numthreads(8,8,1)]
 void CSMain(uint3 id : SV_DispatchThreadID)
@@ -38,32 +57,52 @@ void CSMain(uint3 id : SV_DispatchThreadID)
     float u = ((id.x + 0.5) / width - 0.5) * 2.0;
     float v = ((id.y + 0.5) / height - 0.5) * 2.0;
     float3 dir = normalize(_CameraForward + _CameraRight * (u * _TanFov * _Aspect) + _CameraUp * (v * _TanFov));
+    float3 invDir = 1.0 / dir;
     float minDist = 1e20;
     float3 col = float3(0,0,0);
-    for (int i = 0; i < _NumTriangles; i++)
+
+    int stack[64];
+    int sp = 0;
+    stack[sp++] = 0;
+    while (sp > 0)
     {
-        Triangle t = _Triangles[i];
-        float3 edge1 = t.v1 - t.v0;
-        float3 edge2 = t.v2 - t.v0;
-        float3 pvec = cross(dir, edge2);
-        float det = dot(edge1, pvec);
-        if (abs(det) < 1e-8) continue;
-        float invDet = 1.0 / det;
-        float3 tvec = _CameraPos - t.v0;
-        float utri = dot(tvec, pvec) * invDet;
-        if (utri < 0 || utri > 1) continue;
-        float3 qvec = cross(tvec, edge1);
-        float vtri = dot(dir, qvec) * invDet;
-        if (vtri < 0 || utri + vtri > 1) continue;
-        float dist = dot(edge2, qvec) * invDet;
-        if (dist > 0 && dist < minDist)
+        int ni = stack[--sp];
+        BvhNode node = _Nodes[ni];
+        if (!IntersectAABB(_CameraPos, invDir, node.min, node.max, minDist)) continue;
+        if (node.count > 0)
         {
-            minDist = dist;
-            float w = 1.0 - utri - vtri;
-            float3 n = normalize(t.n0 * w + t.n1 * utri + t.n2 * vtri);
-            float3 baseCol = _Materials[t.materialIndex].color;
-            col = baseCol * saturate(n.y);
+            for (int j = 0; j < node.count; j++)
+            {
+                Triangle t = _Triangles[node.start + j];
+                float3 edge1 = t.v1 - t.v0;
+                float3 edge2 = t.v2 - t.v0;
+                float3 pvec = cross(dir, edge2);
+                float det = dot(edge1, pvec);
+                if (abs(det) < 1e-8) continue;
+                float invDet = 1.0 / det;
+                float3 tvec = _CameraPos - t.v0;
+                float utri = dot(tvec, pvec) * invDet;
+                if (utri < 0 || utri > 1) continue;
+                float3 qvec = cross(tvec, edge1);
+                float vtri = dot(dir, qvec) * invDet;
+                if (vtri < 0 || utri + vtri > 1) continue;
+                float dist = dot(edge2, qvec) * invDet;
+                if (dist > 0 && dist < minDist)
+                {
+                    minDist = dist;
+                    float w = 1.0 - utri - vtri;
+                    float3 n = normalize(t.n0 * w + t.n1 * utri + t.n2 * vtri);
+                    float3 baseCol = _Materials[t.materialIndex].color;
+                    col = baseCol * saturate(n.y);
+                }
+            }
+        }
+        else
+        {
+            if (node.left >= 0) stack[sp++] = node.left;
+            if (node.right >= 0) stack[sp++] = node.right;
         }
     }
+
     Result[id.xy] = float4(col, 1.0);
 }
