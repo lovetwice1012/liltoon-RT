@@ -101,13 +101,13 @@ namespace lilToon.RayTracing
             _lights = LightCollector.Collect(sceneRoot);
         }
 
-        void LoadEnvironment()
+        async void LoadEnvironment()
         {
             if (string.IsNullOrEmpty(environmentPath))
                 return;
             try
             {
-                byte[] data = System.IO.File.ReadAllBytes(environmentPath);
+                byte[] data = await File.ReadAllBytesAsync(environmentPath);
                 _environment = new Texture2D(2, 2, TextureFormat.RGBA32, false);
                 _environment.wrapMode = TextureWrapMode.Clamp;
                 _environment.LoadImage(data);
@@ -149,6 +149,18 @@ namespace lilToon.RayTracing
                     _rngs[i] = new System.Random(i * 9973);
             }
 
+            // Capture camera parameters on the main thread to avoid
+            // accessing the Unity Camera API inside worker threads.
+            var camParams = new RayGenerator.CameraParams
+            {
+                position = targetCamera.transform.position,
+                forward = targetCamera.transform.forward,
+                right = targetCamera.transform.right,
+                up = targetCamera.transform.up,
+                tanFov = Mathf.Tan(targetCamera.fieldOfView * Mathf.Deg2Rad * 0.5f),
+                aspect = (float)width / height
+            };
+
             var colors = _colorBuffer;
             int frameIndex = _frameCount + 1;
             Parallel.For(0, height, y =>
@@ -160,7 +172,7 @@ namespace lilToon.RayTracing
                     for (int s = 0; s < samplesPerPixel; ++s)
                     {
                         var offset = new Vector2((float)rng.NextDouble(), (float)rng.NextDouble());
-                        Ray ray = RayGenerator.Generate(targetCamera, x, y, width, height, offset);
+                        Ray ray = RayGenerator.Generate(camParams, x, y, width, height, offset);
                         col += Shading.Shade(ray, _nodes, _triangles, _materials, _lights, _environmentPixels, _envWidth, _envHeight, areaLightSamples, maxDepth, russianRouletteDepth, rng);
                     }
                     col /= samplesPerPixel;

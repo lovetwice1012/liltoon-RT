@@ -44,24 +44,29 @@ namespace lilToon.RayTracing
             height = tex.height;
             if (tex.isReadable)
                 return tex.GetPixels();
+            RenderTexture rt = null;
+            Texture2D readable = null;
+            RenderTexture prev = RenderTexture.active;
             try
             {
-                RenderTexture rt = RenderTexture.GetTemporary(tex.width, tex.height, 0, RenderTextureFormat.Default, RenderTextureReadWrite.Linear);
+                rt = RenderTexture.GetTemporary(tex.width, tex.height, 0, RenderTextureFormat.Default, RenderTextureReadWrite.Linear);
                 Graphics.Blit(tex, rt);
-                RenderTexture prev = RenderTexture.active;
                 RenderTexture.active = rt;
-                Texture2D readable = new Texture2D(tex.width, tex.height, TextureFormat.RGBA32, false);
+                readable = new Texture2D(tex.width, tex.height, TextureFormat.RGBA32, false);
                 readable.ReadPixels(new Rect(0, 0, rt.width, rt.height), 0, 0);
                 readable.Apply();
-                RenderTexture.active = prev;
-                RenderTexture.ReleaseTemporary(rt);
                 Color[] pixels = readable.GetPixels();
-                Object.Destroy(readable);
                 return pixels;
             }
             catch
             {
                 return null;
+            }
+            finally
+            {
+                RenderTexture.active = prev;
+                if (rt != null) RenderTexture.ReleaseTemporary(rt);
+                if (readable != null) Object.Destroy(readable);
             }
         }
         /// <summary>
