@@ -37,6 +37,11 @@ float _Aspect;
 
 RWTexture2D<float4> Result;
 
+float3 ToneMap(float3 c)
+{
+    return c / (c + 1.0);
+}
+
 bool IntersectAABB(float3 orig, float3 invDir, float3 bmin, float3 bmax, float maxDist)
 {
     float3 t0 = (bmin - orig) * invDir;
@@ -112,5 +117,6 @@ void CSMain(uint3 id : SV_DispatchThreadID)
         }
     }
 
+    col = ToneMap(col);
     Result[id.xy] = float4(col, 1.0);
 }
