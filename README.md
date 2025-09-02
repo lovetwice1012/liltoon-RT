@@ -7,3 +7,4 @@ unitypackageをUnityウィンドウにドラッグ＆ドロップ、もしくは
 [ダウンロード](https://github.com/lilxyzw/lilToon/releases) / [ドキュメント](https://lilxyzw.github.io/lilToon/index.html#/ja-jp/) / [lilToonを用いた制作物の配布手順について](https://lilxyzw.github.io/lilToon/#/ja-jp/first?id=liltoonを用いた制作物の配布について)
 ### Software Ray Tracing
 - Supports albedo and normal map textures with GGX shading.
+- Casts shadows by tracing occlusion rays to lights.

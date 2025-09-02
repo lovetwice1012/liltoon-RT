@@ -136,8 +136,7 @@ namespace lilToon.RayTracing
                     case LightType.Directional:
                     {
                         Vector3 lightDir = -light.direction.normalized;
-                        Ray shadowRay = new Ray(hitPos + lightDir * 1e-3f, lightDir);
-                        if (Raycaster.Raycast(shadowRay, nodes, triangles, out _, out _))
+                        if (IsOccluded(hitPos, lightDir, float.MaxValue, nodes, triangles))
                             continue;
                         SpectralColor brdf = EvaluateBrdf(albedo, mat, normal, lightDir, viewDir);
                         result += brdf * light.spectrum * light.intensity;
@@ -154,8 +153,7 @@ namespace lilToon.RayTracing
                         if (cosAngle < cutoff)
                             continue;
 
-                        Ray shadowRay = new Ray(hitPos + lightDir * 1e-3f, lightDir);
-                        if (Raycaster.Raycast(shadowRay, nodes, triangles, out float shadowDist, out _) && shadowDist < lightDistance)
+                        if (IsOccluded(hitPos, lightDir, lightDistance, nodes, triangles))
                             continue;
 
                         SpectralColor brdf = EvaluateBrdf(albedo, mat, normal, lightDir, viewDir);
@@ -178,8 +176,7 @@ namespace lilToon.RayTracing
                             float lightDistance = toLight.magnitude;
                             Vector3 lightDir = toLight / lightDistance;
 
-                            Ray shadowRay = new Ray(hitPos + lightDir * 1e-3f, lightDir);
-                            if (Raycaster.Raycast(shadowRay, nodes, triangles, out float shadowDist, out _) && shadowDist < lightDistance)
+                            if (IsOccluded(hitPos, lightDir, lightDistance, nodes, triangles))
                                 continue;
 
                             SpectralColor brdf = EvaluateBrdf(albedo, mat, normal, lightDir, viewDir);
@@ -200,8 +197,7 @@ namespace lilToon.RayTracing
             if (environment != null)
             {
                 Vector3 lightDir = SampleSphere(rng);
-                Ray shadowRay = new Ray(hitPos + lightDir * 1e-3f, lightDir);
-                if (!Raycaster.Raycast(shadowRay, nodes, triangles, out _, out _))
+                if (!IsOccluded(hitPos, lightDir, float.MaxValue, nodes, triangles))
                 {
                     SpectralColor env = SampleEnvironment(environment, envWidth, envHeight, lightDir);
                     SpectralColor brdf = EvaluateBrdf(albedo, mat, normal, lightDir, viewDir);
@@ -213,6 +209,17 @@ namespace lilToon.RayTracing
             }
 
             return result;
+        }
+
+        static bool IsOccluded(
+            Vector3 origin,
+            Vector3 direction,
+            float maxDistance,
+            List<BvhBuilder.BvhNode> nodes,
+            List<BvhBuilder.Triangle> triangles)
+        {
+            Ray shadowRay = new Ray(origin + direction * 1e-3f, direction);
+            return Raycaster.Raycast(shadowRay, nodes, triangles, out float dist, out _) && dist < maxDistance;
         }
 
         static Vector3 SampleBrdf(
