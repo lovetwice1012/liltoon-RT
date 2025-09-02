@@ -16,11 +16,21 @@ namespace lilToon.RayTracing
     {
         public Camera targetCamera;
         public GameObject sceneRoot;
-        public int width = 256;
-        public int height = 256;
-        public int samplesPerPixel = 1;
+
+        [Range(1, 4096)]
+        public int width = 2048;
+
+        [Range(1, 4096)]
+        public int height = 2048;
+
+        [Range(1, 1024)]
+        public int samplesPerPixel = 256;
+
         public int areaLightSamples = 4;
-        public int maxDepth = 8;
+
+        [Range(1, 128)]
+        public int maxDepth = 32;
+
         public int russianRouletteDepth = 3;
         public string environmentPath;
 
@@ -194,6 +204,11 @@ namespace lilToon.RayTracing
 
         void Update()
         {
+            width = Mathf.Clamp(width, 1, 4096);
+            height = Mathf.Clamp(height, 1, 4096);
+            samplesPerPixel = Mathf.Clamp(samplesPerPixel, 1, 1024);
+            maxDepth = Mathf.Clamp(maxDepth, 1, 128);
+
             if (HierarchyChanged(sceneRoot != null ? sceneRoot.transform : null))
             {
                 BuildScene();
@@ -298,6 +313,14 @@ namespace lilToon.RayTracing
             }
         }
 
+        static Color ToneMap(Color c)
+        {
+            c.r = c.r / (c.r + 1f);
+            c.g = c.g / (c.g + 1f);
+            c.b = c.b / (c.b + 1f);
+            return c;
+        }
+
         void Render()
         {
             if (targetCamera == null || _nodes == null)
@@ -356,7 +379,7 @@ namespace lilToon.RayTracing
                     col /= samplesPerPixel;
                     int idx = y * width + x;
                     _accumulation[idx] += col;
-                    colors[idx] = (_accumulation[idx] / frameIndex).ToRGB();
+                    colors[idx] = ToneMap((_accumulation[idx] / frameIndex).ToRGB());
                 }
             });
             _frameCount = frameIndex;
