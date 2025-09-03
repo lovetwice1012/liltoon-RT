@@ -2074,5 +2074,9 @@
 // Output
 #if !defined(OVERRIDE_OUTPUT)
     #define OVERRIDE_OUTPUT \
+        if(_lilSoftwareRayEnabled != 0) { \
+            float4 rayCol = LIL_SAMPLE_SCREEN(_lilSoftwareRayTex, lil_sampler_linear_clamp, fd.uvScn); \
+            fd.col.rgb = lerp(fd.col.rgb, rayCol.rgb, rayCol.a); \
+        } \
         return fd.col;
 #endif

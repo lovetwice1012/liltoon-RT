@@ -43,6 +43,9 @@ SAMPLER(lil_sampler_linear_clamp);
     #define LIL_ENABLED_DEPTH_TEX IsScreenTex(_CameraDepthTexture)
 #endif
 
+TEXTURE2D_SCREEN(_lilSoftwareRayTex);
+uint _lilSoftwareRayEnabled;
+
 //------------------------------------------------------------------------------------------------------------------------------
 // Texture Exists
 #if !defined(LIL_FEATURE_MainTex)
