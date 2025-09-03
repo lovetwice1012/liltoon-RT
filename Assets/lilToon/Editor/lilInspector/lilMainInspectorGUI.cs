@@ -49,8 +49,30 @@ namespace lilToon
                         EditorGUILayout.EndVertical();
                         EditorGUILayout.EndVertical();
                     }
-                }
+        }
 
+        private void DrawRayTracingGUI(Material material)
+        {
+            GUILayout.Label("Ray Tracing", boldLabel);
+            edSet.isShowRayTracing = lilEditorGUI.Foldout("Ray Tracing", edSet.isShowRayTracing);
+            DrawMenuButton(string.Empty, PropertyBlock.RayTracing);
+            if(edSet.isShowRayTracing)
+            {
+                EditorGUILayout.BeginVertical(boxOuter);
+                EditorGUILayout.LabelField("Ray Tracing", customToggleFont);
+                EditorGUILayout.BeginVertical(boxInnerHalf);
+                bool enabled = material.GetFloat("_RayTracingEnable") > 0.5f;
+                EditorGUI.BeginChangeCheck();
+                enabled = EditorGUILayout.ToggleLeft("Enable Ray Tracing", enabled, customToggleFont);
+                if(EditorGUI.EndChangeCheck())
+                {
+                    foreach(var m in materials)
+                        m.SetFloat("_RayTracingEnable", enabled ? 1.0f : 0.0f);
+                }
+                EditorGUILayout.EndVertical();
+                EditorGUILayout.EndVertical();
+            }
+        }
                 //------------------------------------------------------------------------------------------------------------------------------
                 // VRChat
                 DrawVRCFallbackGUI(material);
@@ -293,6 +315,7 @@ namespace lilToon
                         EditorGUILayout.EndVertical();
                     }
                 }
+                DrawRayTracingGUI(material);
             }
             else if(isFakeShadow)
             {
@@ -541,6 +564,7 @@ namespace lilToon
                         EditorGUILayout.EndVertical();
                     }
                 }
+                DrawRayTracingGUI(material);
             }
             else
             {
@@ -1646,6 +1670,7 @@ namespace lilToon
                         EditorGUILayout.EndVertical();
                     }
                 }
+                DrawRayTracingGUI(material);
             }
         }
     }

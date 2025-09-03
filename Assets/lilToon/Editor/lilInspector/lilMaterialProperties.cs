@@ -619,6 +619,7 @@ namespace lilToon
         private readonly lilMaterialProperty triMask                = new lilMaterialProperty("_TriMask", true, PropertyBlock.Base);
         private readonly lilMaterialProperty matcapMul              = new lilMaterialProperty("_MatCapMul", PropertyBlock.MatCaps, PropertyBlock.MatCap1st);
         private readonly lilMaterialProperty fakeShadowVector       = new lilMaterialProperty("_FakeShadowVector", PropertyBlock.Base);
+        private readonly lilMaterialProperty rayTracing             = new lilMaterialProperty("_RayTracingEnable", PropertyBlock.RayTracing);
 
         private readonly lilMaterialProperty ramp = new lilMaterialProperty("_Ramp", true);
 
@@ -1227,6 +1228,7 @@ namespace lilToon
                 asOverlay,
                 triMask,
                 matcapMul,
+                rayTracing,
                 fakeShadowVector,
 
                 ramp,

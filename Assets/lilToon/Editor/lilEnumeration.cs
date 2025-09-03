@@ -74,6 +74,7 @@ namespace lilToon
         Stencil,
         Rendering,
         Tessellation,
+        RayTracing,
         Other
     }
 

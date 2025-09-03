@@ -97,10 +97,12 @@ namespace lilToon.RayTracing
             InitTexture();
             if (rayTracingShader != null)
                 _kernel = rayTracingShader.FindKernel("CSMain");
+            Shader.SetGlobalInt("_lilSoftwareRayEnabled", 1);
         }
 
         void OnDisable()
         {
+            Shader.SetGlobalInt("_lilSoftwareRayEnabled", 0);
             if (_output != null)
             {
                 _output.Release();
